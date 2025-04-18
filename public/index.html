@@ -31,7 +31,7 @@
       <div class="genre-panel glass-card">
         <h2 class="genre-title">Жанры</h2>
         <div class="genre-buttons">
-          <button class="genre-button" data-genre="">Все жанры</button>
+          <button class="genre-button active" data-genre="">Все жанры</button>
           <button class="genre-button" data-genre="Аркада">Аркада</button>
           <button class="genre-button" data-genre="Стратегия">Стратегия</button>
           <button class="genre-button" data-genre="Головоломка">Головоломка</button>
@@ -172,6 +172,7 @@
         localStorage.removeItem('token');
         currentUser = null;
         updateAuthPanel(null);
+        renderGames([], null);
       } finally {
         hideLoading();
       }
@@ -247,6 +248,11 @@
       const gamesContainer = document.querySelector(".games-grid");
       const template = document.getElementById("game-card-template");
       gamesContainer.innerHTML = "";
+
+      if (!games || games.length === 0) {
+        gamesContainer.innerHTML = '<p class="no-games">Игры не найдены</p>';
+        return;
+      }
 
       games.forEach((game) => {
         const clone = template.content.cloneNode(true);
@@ -333,58 +339,51 @@
     }
 
     function applyFilters() {
-      try {
-        showLoading();
-        const token = localStorage.getItem('token');
-        const activeGenreButton = document.querySelector('.genre-button.active');
-        const activeFilterButton = document.querySelector('.filter-button.active:not(.clear-filters)');
-        
-        const params = new URLSearchParams();
-        
-        if (activeGenreButton && activeGenreButton.dataset.genre) {
-          params.append('genre', activeGenreButton.dataset.genre);
-        }
-        
-        if (activeFilterButton && activeFilterButton.dataset.sort) {
-          params.append('sort', activeFilterButton.dataset.sort);
-        }
+      showLoading();
+      const token = localStorage.getItem('token');
+      const activeGenreButton = document.querySelector('.genre-button.active');
+      const activeFilterButton = document.querySelector('.filter-button.active:not(.clear-filters)');
+      
+      const params = new URLSearchParams();
+      
+      if (activeGenreButton && activeGenreButton.dataset.genre) {
+        params.append('genre', activeGenreButton.dataset.genre);
+      }
+      
+      if (activeFilterButton && activeFilterButton.dataset.sort) {
+        params.append('sort', activeFilterButton.dataset.sort);
+      }
 
-        const headers = {};
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
-        fetch(`/games?${params.toString()}`, { 
-          method: 'GET',
-          headers: headers
-        })
-        .then(response => {
-          if (!response.ok) throw new Error('Network response was not ok');
-          return response.json();
-        })
-        .then(games => {
-          if (!Array.isArray(games)) {
-            console.warn('Получен неверный формат данных:', games);
-            games = [];
-          }
-          currentGames = games;
-          renderGames(games, currentUser);
-        })
-        .catch(err => {
-          console.error("Ошибка применения фильтров:", err);
+      fetch(`/games?${params.toString()}`, { 
+        method: 'GET',
+        headers: headers
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Ошибка сервера: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(games => {
+        if (!Array.isArray(games)) {
+          console.warn('Получен неверный формат данных:', games);
           currentGames = [];
-          renderGames([], currentUser);
-        })
-        .finally(() => {
-          hideLoading();
-        });
-
-      } catch (err) {
-        console.error("Ошибка:", err);
-        hideLoading();
+        } else {
+          currentGames = games;
+        }
+        renderGames(currentGames, currentUser);
+      })
+      .catch(err => {
+        console.error("Ошибка применения фильтров:", err);
+        alert('Не удалось загрузить игры. Попробуйте позже.');
         currentGames = [];
         renderGames([], currentUser);
-      }
+      })
+      .finally(() => {
+        hideLoading();
+      });
     }
 
     function initFilters() {
@@ -401,22 +400,22 @@
 
       filterButtons.forEach(button => {
         button.addEventListener('click', () => {
-          const isClearButton = button.classList.contains('clear-filters');
-          
-          if (isClearButton) {
-            filterButtons.forEach(btn => btn.classList.remove('active'));
+          if (button.classList.contains('clear-filters')) {
+            // Reset all filters
             genreButtons.forEach(btn => btn.classList.remove('active'));
-            loadData();
-            return;
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.genre-button[data-genre=""]').classList.add('active');
+            applyFilters();
+          } else {
+            // Set sort filter
+            filterButtons.forEach(btn => {
+              if (!btn.classList.contains('clear-filters')) {
+                btn.classList.remove('active');
+              }
+            });
+            button.classList.add('active');
+            applyFilters();
           }
-
-          filterButtons.forEach(btn => {
-            if (!btn.classList.contains('clear-filters')) {
-              btn.classList.remove('active');
-            }
-          });
-          button.classList.add('active');
-          applyFilters();
         });
       });
     }
@@ -563,6 +562,13 @@
         margin-top: 1rem;
         color: var(--neon-blue);
       }
+
+      .no-games {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1.2rem;
+        margin: 2rem 0;
+      }
     `;
 
     const styleSheet = document.createElement("style");
@@ -599,6 +605,12 @@
   <style>
     .admin-panel {
       display: none;
+    }
+
+    .genre-button.active, .filter-button.active {
+      background: linear-gradient(135deg, #ff416c, #ff4b2b);
+      color: white;
+      transform: scale(1.05);
     }
   </style>
 <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932339409d88b058',t:'MTc0NDk2OTQ2Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
