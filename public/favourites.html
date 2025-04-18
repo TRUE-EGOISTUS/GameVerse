@@ -65,13 +65,16 @@
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
-        if (!response.ok) throw new Error('Ошибка загрузки избранного');
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Ошибка загрузки избранного');
+        }
 
         const favorites = await response.json();
         renderGames(favorites);
       } catch (err) {
         console.error("Ошибка:", err);
-        alert("Не удалось загрузить избранное");
+        alert(err.message || "Не удалось загрузить избранное");
         document.getElementById('favoritesGrid').innerHTML = '<p class="no-games">Игры не найдены</p>';
       }
     }
@@ -148,12 +151,15 @@
           }
         });
 
-        if (!response.ok) throw new Error('Ошибка удаления из избранного');
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Ошибка удаления из избранного');
+        }
 
         loadFavorites();
       } catch (err) {
         console.error("Ошибка:", err);
-        alert("Не удалось убрать игру из избранного");
+        alert(err.message || "Не удалось убрать игру из избранного");
       }
     }
 
@@ -275,7 +281,7 @@
 
     .favorite-action {
       top: 10px;
-      left: 10px;
+      left: 50px; /* Перемещаем правее рейтинга */
     }
 
     .action-button:hover {
