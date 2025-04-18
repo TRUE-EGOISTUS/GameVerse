@@ -65,6 +65,9 @@
               <button class="action-button info-action" title="Подробнее">
                 <span>ℹ️</span>
               </button>
+              <button class="action-button favorite-action" title="Добавить в избранное">
+                <span>❤️</span>
+              </button>
             </div>
             <div class="game-info">
               <h3 class="game-title"></h3>
@@ -288,6 +291,13 @@
           window.open(`descr_game.html?id=${game.id}`, "_blank");
         });
 
+        const favoriteButton = clone.querySelector(".action-button.favorite-action");
+        favoriteButton.addEventListener("click", (e) => {
+          e.stopPropagation();
+          toggleFavorite(game.id);
+        });
+        favoriteButton.querySelector("span").textContent = game.isFavorite ? "💔" : "❤️";
+
         const card = clone.querySelector(".game-card");
         card.style.cursor = "pointer";
         card.addEventListener("click", async () => {
@@ -305,6 +315,40 @@
 
         gamesContainer.appendChild(clone);
       });
+    }
+
+    async function toggleFavorite(gameId) {
+      if (!currentUser) {
+        alert('Пожалуйста, войдите в систему, чтобы добавить игру в избранное');
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        const game = currentGames.find(g => g.id === gameId);
+        const isFavorite = game ? game.isFavorite : false;
+        const endpoint = isFavorite ? `/favorites/remove/${gameId}` : `/favorites/add/${gameId}`;
+        const method = isFavorite ? 'DELETE' : 'POST';
+
+        const response = await fetch(endpoint, {
+          method: method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) throw new Error('Ошибка обновления избранного');
+
+        // Update the local game state
+        if (game) {
+          game.isFavorite = !isFavorite;
+        }
+        renderGames(currentGames, currentUser);
+      } catch (err) {
+        console.error("Ошибка:", err);
+        alert("Не удалось обновить избранное");
+      }
     }
 
     async function deleteGame(gameId) {
@@ -401,13 +445,11 @@
       filterButtons.forEach(button => {
         button.addEventListener('click', () => {
           if (button.classList.contains('clear-filters')) {
-            // Reset all filters
             genreButtons.forEach(btn => btn.classList.remove('active'));
             filterButtons.forEach(btn => btn.classList.remove('active'));
             document.querySelector('.genre-button[data-genre=""]').classList.add('active');
             applyFilters();
           } else {
-            // Set sort filter
             filterButtons.forEach(btn => {
               if (!btn.classList.contains('clear-filters')) {
                 btn.classList.remove('active');
@@ -568,6 +610,27 @@
         color: rgba(255, 255, 255, 0.7);
         font-size: 1.2rem;
         margin: 2rem 0;
+      }
+
+      .favorite-action {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        border: none;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #ff416c;
+      }
+
+      .favorite-action:hover {
+        background: rgba(255, 65, 108, 0.9);
+        color: white;
       }
     `;
 
