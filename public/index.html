@@ -220,6 +220,7 @@
       if (user && token) {
         authPanel.innerHTML = `
           <div class="user-info">
+            <img src="${user.avatar || 'https://via.placeholder.com/40'}" alt="Аватар" class="user-avatar">
             <span>👤 ${user.username}</span>
             <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
             <button onclick="logout()" class="btn neon-btn">Выйти</button>
@@ -352,7 +353,6 @@
           throw new Error(error.error || 'Ошибка обновления избранного');
         }
 
-        // Обновляем локальное состояние
         game.isFavorite = !isFavorite;
         console.log(`Состояние избранного для игры ${gameId} обновлено: ${game.isFavorite}`);
         renderGames(currentGames, currentUser);
@@ -576,6 +576,7 @@
             if (user) {
               authPanel.innerHTML = `
                 <div class="user-info">
+                  <img src="${user.avatar || 'https://via.placeholder.com/40'}" alt="Аватар" class="user-avatar">
                   <span>👤 ${user.username}</span>
                   <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
                   <button onclick="logout()" class="btn neon-btn">Выйти</button>
@@ -642,6 +643,30 @@
       .favorite-action:hover {
         background: rgba(255, 65, 108, 0.9);
         color: white;
+      }
+
+      .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid rgba(255, 65, 108, 0.5);
+        box-shadow: 0 0 10px rgba(255, 65, 108, 0.3);
+        transition: transform 0.3s ease;
+      }
+
+      .user-avatar:hover {
+        transform: scale(1.1);
+      }
+
+      .user-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding: 0.5rem 1rem;
+        background: rgba(255,255,255,0.05);
+        border-radius: 30px;
       }
     `;
 
