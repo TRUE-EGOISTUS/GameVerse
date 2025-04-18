@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Настройки - Gaming Hub</title>
+  <title>Настройки - GameVerse</title>
   <link rel="stylesheet" href="styles.css">
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
 </head>
@@ -20,124 +20,172 @@
   </header>
 
   <main class="main-content">
-    <div class="dashboard-container">
-      <div class="settings-section glass-card">
-        <h2 class="neon-subtitle">🎨 Тема сайта</h2>
-        <button class="btn neon-btn" disabled>Сменить тему (скоро)</button>
+    <section class="settings-section glass-card">
+      <h2 class="section-title">Настройки профиля</h2>
+      <div class="settings-container">
+        <!-- Форма для смены ника -->
+        <div class="settings-form">
+          <h3 class="neon-subtitle">Смена ника</h3>
+          <form id="usernameForm" onsubmit="return changeUsername(event)">
+            <div class="input-group">
+              <label class="neon-label" for="newUsername">Новый ник</label>
+              <input type="text" id="newUsername" class="neon-input" required minlength="3" maxlength="20">
+            </div>
+            <button type="submit" class="btn neon-btn">Изменить ник</button>
+          </form>
+        </div>
+
+        <!-- Форма для смены пароля -->
+        <div class="settings-form">
+          <h3 class="neon-subtitle">Смена пароля</h3>
+          <form id="passwordForm" onsubmit="return changePassword(event)">
+            <div class="input-group">
+              <label class="neon-label" for="oldPassword">Старый пароль</label>
+              <input type="password" id="oldPassword" class="neon-input" required>
+            </div>
+            <div class="input-group">
+              <label class="neon-label" for="newPassword">Новый пароль</label>
+              <input type="password" id="newPassword" class="neon-input" required minlength="6">
+            </div>
+            <button type="submit" class="btn neon-btn">Изменить пароль</button>
+          </form>
+        </div>
       </div>
-      <div class="settings-section glass-card">
-        <h2 class="neon-subtitle">✏️ Сменить никнейм</h2>
-        <form id="usernameForm">
-          <div class="input-group">
-            <label class="neon-label" for="newUsername">Новый никнейм</label>
-            <input type="text" id="newUsername" placeholder="Введите новый никнейм" required>
-          </div>
-          <button type="submit" class="btn neon-btn">Сохранить</button>
-        </form>
-      </div>
-      <div class="settings-section glass-card">
-        <h2 class="neon-subtitle">🔒 Сменить пароль</h2>
-        <form id="passwordForm">
-          <div class="input-group">
-            <label class="neon-label" for="currentPassword">Текущий пароль</label>
-            <input type="password" id="currentPassword" placeholder="Введите текущий пароль" required>
-          </div>
-          <div class="input-group">
-            <label class="neon-label" for="newPassword">Новый пароль</label>
-            <input type="password" id="newPassword" placeholder="Введите новый пароль" required>
-          </div>
-          <div class="input-group">
-            <label class="neon-label" for="confirmPassword">Подтвердите пароль</label>
-            <input type="password" id="confirmPassword" placeholder="Подтвердите новый пароль" required>
-          </div>
-          <button type="submit" class="btn neon-btn">Сохранить</button>
-        </form>
-      </div>
-    </div>
+    </section>
   </main>
 
+  <div id="preloader" class="preloader">
+    <div class="loading-spinner"></div>
+    <p>Загрузка...</p>
+  </div>
+
   <script>
-    async function logout() {
+    let currentUser = null;
+
+    function showLoading() {
+      document.getElementById('preloader').style.display = 'flex';
+    }
+
+    function hideLoading() {
+      document.getElementById('preloader').style.display = 'none';
+    }
+
+    async function loadUserData() {
+      showLoading();
       try {
-        const response = await fetch('/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('Требуется авторизация');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        const response = await fetch('/user-data', {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
-        if (!response.ok) throw new Error('Ошибка выхода');
-        localStorage.removeItem('token');
-        window.location.href = 'index.html';
+
+        if (!response.ok) {
+          localStorage.removeItem('token');
+          throw new Error('Ошибка загрузки данных пользователя');
+        }
+
+        currentUser = await response.json();
+        console.log('Пользователь загружен:', currentUser);
       } catch (err) {
-        console.error('Ошибка выхода:', err);
-        alert(err.message);
+        console.error('Ошибка загрузки данных:', err);
+        alert(err.message || 'Не удалось загрузить данные');
+        window.location.href = '/login.html';
+      } finally {
+        hideLoading();
       }
     }
 
-    document.getElementById("usernameForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      const newUsername = document.getElementById("newUsername").value.trim();
-      if (!newUsername) {
-        alert("Никнейм не может быть пустым");
-        return;
-      }
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch("/users/update-username", {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ username: newUsername })
-        });
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Ошибка обновления никнейма');
-        }
-        alert('Никнейм успешно обновлен');
-        document.getElementById("newUsername").value = '';
-      } catch (err) {
-        console.error("Ошибка:", err);
-        alert(err.message || "Не удалось обновить никнейм");
-      }
-    });
-
-    document.getElementById("passwordForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      const currentPassword = document.getElementById("currentPassword").value;
-      const newPassword = document.getElementById("newPassword").value;
-      const confirmPassword = document.getElementById("confirmPassword").value;
-
-      if (newPassword !== confirmPassword) {
-        alert("Пароли не совпадают");
-        return;
-      }
-      if (newPassword.length < 6) {
-        alert("Новый пароль должен содержать минимум 6 символов");
-        return;
-      }
+    async function changeUsername(event) {
+      event.preventDefault();
+      const newUsername = document.getElementById('newUsername').value.trim();
 
       try {
+        showLoading();
         const token = localStorage.getItem('token');
-        const response = await fetch("/users/update-password", {
+        const response = await fetch('/user/username', {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ currentPassword, newPassword })
+          body: JSON.stringify({ newUsername })
         });
+
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.message || 'Ошибка обновления пароля');
+          throw new Error(error.error || 'Ошибка смены ника');
         }
-        alert('Пароль успешно обновлен');
-        document.getElementById("passwordForm").reset();
+
+        const data = await response.json();
+        localStorage.setItem('token', data.token);
+        currentUser.username = data.username;
+        alert('Ник успешно изменён');
+        document.getElementById('usernameForm').reset();
       } catch (err) {
-        console.error("Ошибка:", err);
-        alert(err.message || "Не удалось обновить пароль");
+        console.error('Ошибка смены ника:', err);
+        alert(err.message || 'Не удалось изменить ник');
+      } finally {
+        hideLoading();
       }
+    }
+
+    async function changePassword(event) {
+      event.preventDefault();
+      const oldPassword = document.getElementById('oldPassword').value;
+      const newPassword = document.getElementById('newPassword').value;
+
+      try {
+        showLoading();
+        const token = localStorage.getItem('token');
+        const response = await fetch('/user/password', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ oldPassword, newPassword })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Ошибка смены пароля');
+        }
+
+        alert('Пароль успешно изменён');
+        document.getElementById('passwordForm').reset();
+      } catch (err) {
+        console.error('Ошибка смены пароля:', err);
+        alert(err.message || 'Не удалось изменить пароль');
+      } finally {
+        hideLoading();
+      }
+    }
+
+    async function logout() {
+      try {
+        const token = localStorage.getItem('token');
+        if (token) {
+          await fetch('/logout', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        }
+        localStorage.removeItem('token');
+        window.location.href = '/index.html';
+      } catch (err) {
+        console.error('Ошибка выхода:', err);
+        localStorage.removeItem('token');
+        window.location.href = '/index.html';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserData();
     });
   </script>
 
@@ -146,59 +194,111 @@
       background: var(--dark-bg);
     }
 
-    .neon-subtitle {
-      font-size: 1.8rem;
+    .section-title {
+      font-size: 2rem;
       color: #ff416c;
       text-shadow: 0 0 10px rgba(255, 65, 108, 0.8);
       margin-bottom: 1.5rem;
-    }
-
-    .settings-section {
-      width: 100%;
-      max-width: 800px;
-      padding: 2rem;
-      margin-bottom: 2rem;
-    }
-
-    .input-group {
-      margin-bottom: 1rem;
-    }
-
-    .neon-label {
-      display: block;
-      color: #ff416c;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-
-    input[type="text"],
-    input[type="password"] {
-      width: 100%;
-      padding: 0.8rem;
-      border: 2px solid rgba(255, 65, 108, 0.5);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.1);
-      color: #fff;
-      font-size: 1rem;
-      transition: border-color 0.3s ease;
-    }
-
-    input[type="text"]:focus,
-    input[type="password"]:focus {
-      border-color: #ff416c;
-      outline: none;
-    }
-
-    .btn {
-      width: 100%;
-      padding: 1rem;
-      font-size: 1rem;
       text-align: center;
     }
 
-    .btn[disabled] {
-      background: rgba(255, 255, 255, 0.2);
-      cursor: not-allowed;
+    .settings-section {
+      max-width: 600px;
+      margin: 2rem auto;
+      padding: 2rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .settings-container {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .settings-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .neon-subtitle {
+      font-size: 1.5rem;
+      color: #ffeb3b;
+      text-shadow: 0 0 5px rgba(255, 235, 59, 0.8);
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .neon-label {
+      color: #ffeb3b;
+      font-size: 1rem;
+    }
+
+    .neon-input {
+      padding: 0.5rem;
+      border: 1px solid #ff416c;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.5);
+      color: #fff;
+      font-size: 1rem;
+    }
+
+    .neon-input:focus {
+      outline: none;
+      border-color: #ffeb3b;
+      box-shadow: 0 0 5px rgba(255, 235, 59, 0.8);
+    }
+
+    .btn.neon-btn {
+      background: linear-gradient(135deg, #ff416c, #ff4b2b);
+      color: white;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .btn.neon-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .preloader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .preloader p {
+      margin-top: 1rem;
+      color: var(--neon-blue);
+    }
+
+    .loading-spinner {
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid #ff416c;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </body>
