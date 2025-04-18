@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Настройки - Gaming Hub</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gradient-bg">
+  <header>
+    <div class="header-content">
+      <h1 class="neon-text">⚙️ Настройки</h1>
+      <nav class="auth-panel">
+        <a href="lichniy_cabinet.html" class="btn neon-btn">← Личный кабинет</a>
+        <a href="index.html" class="btn neon-btn">Главная</a>
+        <button onclick="logout()" class="btn neon-btn">Выйти</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="dashboard-container">
+      <div class="settings-section glass-card">
+        <h2 class="neon-subtitle">🎨 Тема сайта</h2>
+        <button class="btn neon-btn" disabled>Сменить тему (скоро)</button>
+      </div>
+      <div class="settings-section glass-card">
+        <h2 class="neon-subtitle">✏️ Сменить никнейм</h2>
+        <form id="usernameForm">
+          <div class="input-group">
+            <label class="neon-label" for="newUsername">Новый никнейм</label>
+            <input type="text" id="newUsername" placeholder="Введите новый никнейм" required>
+          </div>
+          <button type="submit" class="btn neon-btn">Сохранить</button>
+        </form>
+      </div>
+      <div class="settings-section glass-card">
+        <h2 class="neon-subtitle">🔒 Сменить пароль</h2>
+        <form id="passwordForm">
+          <div class="input-group">
+            <label class="neon-label" for="currentPassword">Текущий пароль</label>
+            <input type="password" id="currentPassword" placeholder="Введите текущий пароль" required>
+          </div>
+          <div class="input-group">
+            <label class="neon-label" for="newPassword">Новый пароль</label>
+            <input type="password" id="newPassword" placeholder="Введите новый пароль" required>
+          </div>
+          <div class="input-group">
+            <label class="neon-label" for="confirmPassword">Подтвердите пароль</label>
+            <input type="password" id="confirmPassword" placeholder="Подтвердите новый пароль" required>
+          </div>
+          <button type="submit" class="btn neon-btn">Сохранить</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function logout() {
+      try {
+        const response = await fetch('/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        if (!response.ok) throw new Error('Ошибка выхода');
+        localStorage.removeItem('token');
+        window.location.href = 'index.html';
+      } catch (err) {
+        console.error('Ошибка выхода:', err);
+        alert(err.message);
+      }
+    }
+
+    document.getElementById("usernameForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      const newUsername = document.getElementById("newUsername").value.trim();
+      if (!newUsername) {
+        alert("Никнейм не может быть пустым");
+        return;
+      }
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch("/users/update-username", {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ username: newUsername })
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Ошибка обновления никнейма');
+        }
+        alert('Никнейм успешно обновлен');
+        document.getElementById("newUsername").value = '';
+      } catch (err) {
+        console.error("Ошибка:", err);
+        alert(err.message || "Не удалось обновить никнейм");
+      }
+    });
+
+    document.getElementById("passwordForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      const currentPassword = document.getElementById("currentPassword").value;
+      const newPassword = document.getElementById("newPassword").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
+
+      if (newPassword !== confirmPassword) {
+        alert("Пароли не совпадают");
+        return;
+      }
+      if (newPassword.length < 6) {
+        alert("Новый пароль должен содержать минимум 6 символов");
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch("/users/update-password", {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Ошибка обновления пароля');
+        }
+        alert('Пароль успешно обновлен');
+        document.getElementById("passwordForm").reset();
+      } catch (err) {
+        console.error("Ошибка:", err);
+        alert(err.message || "Не удалось обновить пароль");
+      }
+    });
+  </script>
+
+  <style>
+    .gradient-bg {
+      background: var(--dark-bg);
+    }
+
+    .neon-subtitle {
+      font-size: 1.8rem;
+      color: #ff416c;
+      text-shadow: 0 0 10px rgba(255, 65, 108, 0.8);
+      margin-bottom: 1.5rem;
+    }
+
+    .settings-section {
+      width: 100%;
+      max-width: 800px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .input-group {
+      margin-bottom: 1rem;
+    }
+
+    .neon-label {
+      display: block;
+      color: #ff416c;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 0.8rem;
+      border: 2px solid rgba(255, 65, 108, 0.5);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-size: 1rem;
+      transition: border-color 0.3s ease;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      border-color: #ff416c;
+      outline: none;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 1rem;
+      font-size: 1rem;
+      text-align: center;
+    }
+
+    .btn[disabled] {
+      background: rgba(255, 255, 255, 0.2);
+      cursor: not-allowed;
+    }
+  </style>
+</body>
+</html>
