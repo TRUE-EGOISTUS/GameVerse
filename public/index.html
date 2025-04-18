@@ -129,7 +129,7 @@
 
     let currentUser = null;
     let selectedGameId = null;
-    let currentGames = []; // Добавляем переменную для хранения текущего списка игр
+    let currentGames = [];
     let isLoading = true;
 
     function showLoading() {
@@ -192,20 +192,16 @@
           }
         });
 
-        // Очищаем локальное хранилище в любом случае
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         currentUser = null;
 
-        // Обновляем UI
         updateAuthPanel(null);
         loadData();
 
-        // Перенаправляем на главную
         window.location.href = '/';
       } catch (err) {
         console.error("Ошибка выхода:", err);
-        // Очищаем данные даже при ошибке
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/';
@@ -214,18 +210,16 @@
 
     function updateAuthPanel(user) {
       const authPanel = document.getElementById("authPanel");
-      if (!authPanel) return; // Защита от undefined
+      if (!authPanel) return;
       
       const token = localStorage.getItem('token');
       if (user && token) {
         authPanel.innerHTML = `
           <div class="user-info">
             <span>👤 ${user.username}</span>
+            <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
             ${user.role === 'admin' 
-              ? `<span class="admin-badge">👑 Администратор</span>
-                 <a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>`
-              : user.role === 'developer'
-              ? '<a href="dashboard.html" class="btn neon-btn">Кабинет</a>'
+              ? '<a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>'
               : ''}
             <button onclick="logout()" class="btn neon-btn">Выйти</button>
           </div>
@@ -245,12 +239,10 @@
     }
 
     async function getGameIndexPath(game) {
-      // Если путь указан явно, используем его как есть, без добавления /content/
       if (game.path && typeof game.path === "string") {
         return `/games/${game.id}/${game.path.split('/').slice(2).join('/')}`;
       }
       
-      // Фолбэк: ищем в подпапке simple_game
       return `/games/${game.id}/simple_game/index.html`;
     }
 
@@ -262,10 +254,8 @@
       games.forEach((game) => {
         const clone = template.content.cloneNode(true);
         
-        // Показываем картинку или плейсхолдер
         const cover = clone.querySelector(".game-cover");
         const placeholder = clone.querySelector(".game-cover-placeholder");
-        // Показываем обложку, если есть base64 cover
         if (game.cover && typeof game.cover === "string" && game.cover.startsWith("data:")) {
           cover.src = game.cover;
           cover.style.display = "";
@@ -276,18 +266,14 @@
           placeholder.style.display = "flex";
         }
 
-        // Название игры
         clone.querySelector(".game-title").textContent = game.title || game.name || "Без названия";
 
-        // Рейтинг
         const rating = getAverageRatingValue(game.ratings);
         clone.querySelector(".rating-value").textContent = rating.toFixed(1);
 
-        // Кнопка действия (информация)
         const actionButton = clone.querySelector(".action-button.info-action");
         actionButton.addEventListener("click", (e) => {
           e.stopPropagation();
-          // Ripple effect
           const ripple = document.createElement('span');
           ripple.className = 'ripple';
           const rect = actionButton.getBoundingClientRect();
@@ -296,11 +282,9 @@
           ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
           actionButton.appendChild(ripple);
           setTimeout(() => ripple.remove(), 500);
-          // Открыть страницу описания
           window.open(`descr_game.html?id=${game.id}`, "_blank");
         });
 
-        // Запуск игры по клику на карточку
         const card = clone.querySelector(".game-card");
         card.style.cursor = "pointer";
         card.addEventListener("click", async () => {
@@ -308,13 +292,11 @@
           const basePath = `${game.path || `/games/${game.id}/simple_game/index.html`}`;
           const url = basePath.startsWith('/games/') ? basePath : `/games/${game.id}/${basePath}`;
 
-          // Отправляем запрос на увеличение просмотров с токеном
           fetch(`/games/${game.id}/view`, {
             method: "POST",
             headers: token ? { 'Authorization': `Bearer ${token}` } : {}
           }).catch(console.error);
 
-          // Открываем игру в новом окне
           window.open(url, "_blank");
         });
 
@@ -340,7 +322,7 @@
         if (!response.ok) throw new Error('Ошибка удаления');
         
         alert('Игра успешно удалена');
-        loadData(); // Перезагружаем список игр
+        loadData();
       } catch (err) {
         console.error('Ошибка:', err);
         alert('Ошибка при удалении игры');
@@ -375,7 +357,6 @@
           headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // Отправляем запрос
         fetch(`/games?${params.toString()}`, { 
           method: 'GET',
           headers: headers
@@ -387,7 +368,7 @@
         .then(games => {
           if (!Array.isArray(games)) {
             console.warn('Получен неверный формат данных:', games);
-            games = []; // Если не массив, используем пустой массив
+            games = [];
           }
           currentGames = games;
           renderGames(games, currentUser);
@@ -413,7 +394,6 @@
       const genreButtons = document.querySelectorAll('.genre-button');
       const filterButtons = document.querySelectorAll('.filter-button');
 
-      // Обработчики для жанров
       genreButtons.forEach(button => {
         button.addEventListener('click', () => {
           genreButtons.forEach(btn => btn.classList.remove('active'));
@@ -422,21 +402,17 @@
         });
       });
 
-      // Обработчики для сортировки
       filterButtons.forEach(button => {
         button.addEventListener('click', () => {
           const isClearButton = button.classList.contains('clear-filters');
           
           if (isClearButton) {
-            // Сброс всех фильтров
             filterButtons.forEach(btn => btn.classList.remove('active'));
             genreButtons.forEach(btn => btn.classList.remove('active'));
-            // Загружаем все игры без фильтров
             loadData();
             return;
           }
 
-          // Переключаем активную кнопку сортировки
           filterButtons.forEach(btn => {
             if (!btn.classList.contains('clear-filters')) {
               btn.classList.remove('active');
@@ -458,20 +434,17 @@
       const dropdownToggle = document.querySelector('.dropdown-toggle');
 
       if (dropdownToggle) {
-        // Добавляем обработчик клика на кнопку
         dropdownToggle.addEventListener('click', (e) => {
           e.stopPropagation();
           authDropdown.classList.toggle('active');
         });
 
-        // Закрываем выпадающее меню при клике вне его
         document.addEventListener('click', (e) => {
           if (!authDropdown.contains(e.target)) {
             authDropdown.classList.remove('active');
           }
         });
 
-        // Закрываем меню при переходе по ссылке
         const dropdownItems = document.querySelectorAll('.dropdown-item');
         dropdownItems.forEach(item => {
           item.addEventListener('click', () => {
@@ -489,9 +462,8 @@
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       })
       .then(() => {
-        // Упрощаем путь, убирая дублирование ID игры
         const simplePath = path.split('/games/')[1].split('/');
-        simplePath.shift(); // Удаляем ID игры из пути
+        simplePath.shift();
         const finalPath = `/games/${gameId}/content/${simplePath.join('/')}`;
         window.open(finalPath, '_blank');
       })
@@ -532,7 +504,7 @@
         if (response.ok) {
           alert('Спасибо за ваш отзыв!');
           closeRatingModal();
-          loadData(); // Обновляем список игр
+          loadData();
         } else {
           throw new Error('Ошибка сохранения оценки');
         }
@@ -556,13 +528,8 @@
               authPanel.innerHTML = `
                 <div class="user-info">
                   <span>👤 ${user.username}</span>
-                  ${
-                    user.role === "admin"
-                      ? '<a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>'
-                      : user.role === "developer"
-                      ? '<a href="dashboard.html" class="btn neon-btn">Кабинет</a>'
-                      : ''
-                  }
+                  <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
+                  ${user.role === 'admin' ? '<a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>' : ''}
                   <button onclick="logout()" class="btn neon-btn">Выйти</button>
                 </div>
               `;
@@ -578,7 +545,7 @@
       checkNotifications();
       initAuthDropdown();
       updateNavigation();
-      initFilters(); // Инициализация фильтров
+      initFilters();
     });
 
     const styles = `
@@ -638,5 +605,5 @@
       display: none;
     }
   </style>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932339409d88b058',t:'MTc0NDk2OTQ2Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
