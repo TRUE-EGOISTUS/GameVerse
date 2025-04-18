@@ -77,7 +77,7 @@
 
   <div id="ratingModal" class="modal">
     <div class="modal-content glass-card">
-      <span class="close-btn" onclick="closeRatingModal()">&times;</span>
+      <span class="close-btn" onclick="closeRatingModal()">×</span>
       <h2 class="neon-subtitle">Оценить игру</h2>
       <form id="ratingForm" onsubmit="return submitRating(event)">
         <input type="hidden" id="selectedGameId">
@@ -218,9 +218,6 @@
           <div class="user-info">
             <span>👤 ${user.username}</span>
             <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
-            ${user.role === 'admin' 
-              ? '<a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>'
-              : ''}
             <button onclick="logout()" class="btn neon-btn">Выйти</button>
           </div>
         `;
@@ -529,7 +526,6 @@
                 <div class="user-info">
                   <span>👤 ${user.username}</span>
                   <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
-                  ${user.role === 'admin' ? '<a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>' : ''}
                   <button onclick="logout()" class="btn neon-btn">Выйти</button>
                 </div>
               `;
