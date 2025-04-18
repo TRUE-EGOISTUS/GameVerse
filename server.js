@@ -282,7 +282,6 @@ app.get("/user-data", verifyToken, (req, res) => {
     id: req.user.id,
     username: req.user.username,
     role: req.user.role,
-    online: req.user.online,
     lastSeen: req.user.lastSeen || null,
     avatar: req.user.avatar || null
   });
