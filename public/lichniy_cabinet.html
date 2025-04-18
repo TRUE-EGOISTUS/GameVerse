@@ -35,29 +35,31 @@
             <p><strong>Последний вход:</strong> <span id="lastLogin">18.04.2025 14:30</span></p>
           </div>
         </div>
-        <button class="btn neon-btn" onclick="alert('Функция смены пароля пока не реализована')">Сменить пароль</button>
       </div>
 
       <div class="actions-section glass-card">
         <h2 class="neon-subtitle">⚙️ Действия</h2>
         <div class="action-buttons">
-          <button id="myGamesBtn" class="btn neon-btn" onclick="window.location.href='dashboard.html'" style="display: none;">Мои игры</button>
-          <button class="btn neon-btn" onclick="window.location.href='favorites.html'">Избранное</button>
+          <button id="myGamesBtn" class="btn neon-btn" onclick="alert('Переход к моим играм пока не реализован')" style="display: none;">Мои игры</button>
+          <a href="favorites.html" class="btn neon-btn">Избранное</a>
           <button class="btn neon-btn" onclick="alert('Переход к истории активности пока не реализован')">История активности</button>
           <button class="btn neon-btn" onclick="alert('Переход к достижениям пока не реализован')">Достижения и статистика</button>
           <button class="btn neon-btn" onclick="alert('Переход к уведомлениям пока не реализован')">Уведомления</button>
-          <button class="btn neon-btn" onclick="window.location.href='settings.html'">Настройки</button>
-          <button id="adminPanelBtn" class="btn neon-btn admin-btn" onclick="window.location.href='admin-panel.html'" style="display: none;">Админ-панель</button>
+          <a href="settings.html" class="btn neon-btn">Настройки</a>
+          <button class="btn neon-btn" onclick="alert('Переход к безопасности пока не реализован')">Безопасность</button>
+          <button id="adminPanelBtn" class="btn neon-btn admin-btn" onclick="alert('Переход к админ-панели пока не реализован')" style="display: none;">Админ-панель</button>
         </div>
       </div>
     </div>
   </main>
 
   <script>
+    // Загрузка данных пользователя
     async function loadUserData() {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
+          console.warn('Токен отсутствует, перенаправление на страницу входа');
           window.location.href = '/login.html';
           return;
         }
@@ -69,60 +71,96 @@
         });
 
         if (!response.ok) {
-          throw new Error('Ошибка загрузки данных пользователя');
+          const error = await response.json();
+          throw new Error(error.error || 'Ошибка загрузки данных пользователя');
         }
 
         const user = await response.json();
-        document.getElementById('username').textContent = user.username;
-        document.getElementById('userRole').textContent = user.role === 'admin' ? 'Админ' : user.role === 'developer' ? 'Разработчик' : 'Игрок';
-        document.getElementById('userStatus').textContent = user.online ? 'Онлайн' : 'Оффлайн';
-        document.getElementById('lastLogin').textContent = user.lastSeen || 'Неизвестно';
-        
-        if (user.role === 'admin') {
-          document.getElementById('adminPanelBtn').style.display = 'block';
+        console.log('Данные пользователя загружены:', user);
+
+        const usernameEl = document.getElementById('username');
+        const userRoleEl = document.getElementById('userRole');
+        const userStatusEl = document.getElementById('userStatus');
+        const lastLoginEl = document.getElementById('lastLogin');
+
+        if (!usernameEl || !userRoleEl || !userStatusEl || !lastLoginEl) {
+          throw new Error('Один или несколько элементов DOM не найдены');
         }
 
-        if (user.role === 'developer') {
-          document.getElementById('myGamesBtn').style.display = 'block';
-        } else {
-          document.getElementById('myGamesBtn').style.display = 'none';
+        usernameEl.textContent = user.username || 'Неизвестно';
+        userRoleEl.textContent = user.role === 'admin' ? 'Админ' : user.role === 'developer' ? 'Разработчик' : 'Игрок';
+        userStatusEl.textContent = user.online ? 'Онлайн' : 'Оффлайн';
+        lastLoginEl.textContent = user.lastSeen || 'Неизвестно';
+        
+        // Показать кнопку админ-панели только для админов
+        const adminPanelBtn = document.getElementById('adminPanelBtn');
+        if (adminPanelBtn) {
+          adminPanelBtn.style.display = user.role === 'admin' ? 'block' : 'none';
+        }
+
+        // Показать кнопку "Мои игры" только для разработчиков и админов
+        const myGamesBtn = document.getElementById('myGamesBtn');
+        if (myGamesBtn) {
+          myGamesBtn.style.display = (user.role === 'developer' || user.role === 'admin') ? 'block' : 'none';
         }
       } catch (err) {
-        console.error('Ошибка:', err);
-        alert('Не удалось загрузить данные пользователя. Попробуйте позже.');
+        console.error('Ошибка загрузки данных:', err);
+        alert(err.message || 'Не удалось загрузить данные пользователя. Попробуйте позже.');
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
       }
     }
 
+    // Выход из аккаунта
     async function logout() {
       try {
-        const response = await fetch('/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        const token = localStorage.getItem('token');
+        if (token) {
+          const response = await fetch('/logout', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Ошибка выхода');
           }
-        });
-        if (!response.ok) throw new Error('Ошибка выхода');
+        }
         localStorage.removeItem('token');
         window.location.href = 'index.html';
       } catch (err) {
         console.error('Ошибка выхода:', err);
-        alert(err.message);
+        alert(err.message || 'Не удалось выйти. Попробуйте снова.');
+        localStorage.removeItem('token');
+        window.location.href = 'index.html';
       }
     }
 
+    // Предпросмотр аватара
+    function initAvatarUpload() {
+      const avatarUpload = document.getElementById('avatarUpload');
+      const userAvatar = document.getElementById('userAvatar');
+      if (avatarUpload && userAvatar) {
+        avatarUpload.addEventListener('change', function(e) {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+              userAvatar.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+      } else {
+        console.warn('Элементы avatarUpload или userAvatar не найдены');
+      }
+    }
+
+    // Загрузка данных при загрузке страницы
     document.addEventListener('DOMContentLoaded', () => {
       loadUserData();
-    });
-
-    document.getElementById('avatarUpload').addEventListener('change', function(e) {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          document.getElementById('userAvatar').src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      }
+      initAvatarUpload();
     });
   </script>
 
@@ -245,6 +283,5 @@
       }
     }
   </style>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'93233940aa15bf95',t:'MTc0NDk2OTQ2Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
