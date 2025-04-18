@@ -80,17 +80,15 @@
 
         const usernameEl = document.getElementById('username');
         const userRoleEl = document.getElementById('userRole');
-        const userStatusEl = document.getElementById('userStatus');
         const lastLoginEl = document.getElementById('lastLogin');
         const userAvatarEl = document.getElementById('userAvatar');
 
-        if (!usernameEl || !userRoleEl || !userStatusEl || !lastLoginEl || !userAvatarEl) {
+        if (!usernameEl || !userRoleEl || !lastLoginEl || !userAvatarEl) {
           throw new Error('Один или несколько элементов DOM не найдены');
         }
 
         usernameEl.textContent = user.username || 'Неизвестно';
         userRoleEl.textContent = user.role === 'admin' ? 'Админ' : user.role === 'developer' ? 'Разработчик' : 'Игрок';
-        userStatusEl.textContent = user.online ? 'Онлайн' : 'Оффлайн';
         lastLoginEl.textContent = user.lastSeen || 'Неизвестно';
         userAvatarEl.src = user.avatar || 'https://via.placeholder.com/150';
         
