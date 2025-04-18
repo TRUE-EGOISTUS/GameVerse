@@ -39,7 +39,11 @@
     "username": "123",
     "password": "$2b$10$1JqsQDozNV4t.dCrdo6qiuscZHRcFE/hHgEkFRNU5IgJ3LgVg1Kx.",
     "role": "user",
-    "online": false
+    "online": true,
+    "favorites": [
+      "1743773033419",
+      "1743618268566"
+    ]
   },
   {
     "id": "1743771510283",

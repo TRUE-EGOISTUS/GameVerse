@@ -325,9 +325,16 @@
       }
 
       try {
+        console.log(`Тоггл избранного для игры ${gameId}`);
         const token = localStorage.getItem('token');
         const game = currentGames.find(g => g.id === gameId);
-        const isFavorite = game ? game.isFavorite : false;
+        if (!game) {
+          console.error(`Игра с ID ${gameId} не найдена в currentGames`);
+          alert('Игра не найдена');
+          return;
+        }
+
+        const isFavorite = game.isFavorite || false;
         const endpoint = isFavorite ? `/favorites/remove/${gameId}` : `/favorites/add/${gameId}`;
         const method = isFavorite ? 'DELETE' : 'POST';
 
@@ -341,16 +348,16 @@
 
         if (!response.ok) {
           const error = await response.json();
+          console.error('Ошибка сервера:', error);
           throw new Error(error.error || 'Ошибка обновления избранного');
         }
 
         // Обновляем локальное состояние
-        if (game) {
-          game.isFavorite = !isFavorite;
-        }
+        game.isFavorite = !isFavorite;
+        console.log(`Состояние избранного для игры ${gameId} обновлено: ${game.isFavorite}`);
         renderGames(currentGames, currentUser);
       } catch (err) {
-        console.error("Ошибка:", err);
+        console.error("Ошибка в toggleFavorite:", err);
         alert(err.message || "Не удалось обновить избранное");
       }
     }
@@ -619,7 +626,7 @@
       .favorite-action {
         position: absolute;
         top: 10px;
-        left: 50px; /* Перемещаем правее рейтинга */
+        left: 50px;
         background: rgba(0, 0, 0, 0.7);
         border: none;
         border-radius: 50%;
