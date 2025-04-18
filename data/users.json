@@ -46,7 +46,7 @@
     "username": "psyco",
     "password": "$2b$10$V5ojk2AQ9h2aLb0rW3dK3OrOJsGvB9WuQuzrpjJ21RaKfeO8VsvgO",
     "role": "developer",
-    "online": false
+    "online": true
   },
   {
     "id": "1743773857750",
@@ -60,6 +60,6 @@
     "username": "GEYNERALb",
     "password": "$2b$10$rpjugw1Uj.W5c66CluOzLO1LmVOV9sZF2/oYVSTah57xlFfHoR6sK",
     "role": "admin",
-    "online": true
+    "online": false
   }
 ]
