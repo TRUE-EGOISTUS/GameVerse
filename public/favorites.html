@@ -22,6 +22,7 @@
   <main class="main-content">
     <section class="games-section">
       <h2 class="section-title">⭐ Ваши избранные игры</h2>
+      <p id="userStatus" class="user-status">Статус: <span>Неизвестно</span></p>
       <div class="games-grid" id="favoritesGrid">
         <template id="game-card-template">
           <div class="game-card">
@@ -62,18 +63,28 @@
         }
 
         console.log('Загрузка избранных игр');
-        const response = await fetch('/favorites', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const [favoritesResponse, userResponse] = await Promise.all([
+          fetch('/favorites', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch('/user-data', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
 
-        if (!response.ok) {
-          const error = await response.json();
+        if (!favoritesResponse.ok || !userResponse.ok) {
+          const error = await (favoritesResponse.ok ? userResponse : favoritesResponse).json();
           console.error('Ошибка сервера:', error);
-          throw new Error(error.error || 'Ошибка загрузки избранного');
+          throw new Error(error.error || 'Ошибка загрузки данных');
         }
 
-        const favorites = await response.json();
+        const favorites = await favoritesResponse.json();
+        const user = await userResponse.json();
         console.log('Избранные игры загружены:', favorites);
+
+        const userStatusEl = document.getElementById('userStatus').querySelector('span');
+        userStatusEl.textContent = user.online ? 'Онлайн' : 'Оффлайн';
+
         renderGames(favorites);
       } catch (err) {
         console.error("Ошибка в loadFavorites:", err);
@@ -205,6 +216,17 @@
       text-shadow: 0 0 10px rgba(255, 65, 108, 0.8);
       margin-bottom: 1.5rem;
       text-align: center;
+    }
+
+    .user-status {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+
+    .user-status span {
+      color: #ff416c;
     }
 
     .games-grid {
