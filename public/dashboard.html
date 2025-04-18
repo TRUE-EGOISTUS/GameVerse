@@ -21,10 +21,10 @@
     <div class="dashboard-container">
       <div class="upload-section glass-card">
         <h2 class="neon-subtitle">🚀 Загрузить новую игру</h2>
-        <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <form id="uploadForm" enctype="multipart/form-data">
           <div class="input-group">
             <label>Название игры</label>
-            <input type="text" name="name" required>
+            <input type="text" name="title" required>
           </div>
           
           <div class="input-group">
@@ -47,10 +47,10 @@
           </div>
           
           <div class="input-group">
-            <label>ZIP-архив с игрой</label>
+            <label>Файлы игры (HTML, CSS, JS, изображения)</label>
             <div class="file-upload">
-              <input type="file" name="game" id="gameFile" accept=".zip" required>
-              <label for="gameFile">Выбрать файл</label>
+              <input type="file" name="gameFiles" id="gameFiles" multiple required>
+              <label for="gameFiles">Выбрать файлы</label>
             </div>
           </div>
 
@@ -83,7 +83,7 @@
         
         <div class="input-group">
           <label>Название игры</label>
-          <input type="text" id="editName" required>
+          <input type="text" id="editTitle" required>
         </div>
         
         <div class="input-group">
@@ -139,10 +139,10 @@
     }
     
     function renderMyGames(games) {
-    const container = document.getElementById("myGamesContainer");
-    container.innerHTML = games.map(game => `
+      const container = document.getElementById("myGamesContainer");
+      container.innerHTML = games.map(game => `
         <div class="game-card">
-            <h3>${game.name}</h3>
+            <h3>${game.title}</h3>
             <p class="game-description">${game.description}</p>
             <div class="game-meta">
                 <span>👤 ${game.author}</span>
@@ -157,8 +157,9 @@
                 <a href="analytics.html?id=${game.id}" class="btn small-btn">📊 Аналитика</a>
             </div>
         </div>
-    `).join('');
-}
+      `).join('');
+    }
+    
     function getAverageRating(ratings) {
       if (!ratings || ratings.length === 0) return '0.0 ★';
       const avg = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
@@ -177,7 +178,7 @@
         })
         .then(game => {
           document.getElementById("editGameId").value = game.id;
-          document.getElementById("editName").value = game.name;
+          document.getElementById("editTitle").value = game.title;
           document.getElementById("editDescription").value = game.description;
           document.getElementById("editGenre").value = game.genre;
           document.getElementById("editTags").value = game.tags?.join(', ') || '';
@@ -198,15 +199,18 @@
       
       const gameId = document.getElementById("editGameId").value;
       const gameData = {
-        name: document.getElementById("editName").value,
+        title: document.getElementById("editTitle").value,
         description: document.getElementById("editDescription").value,
         genre: document.getElementById("editGenre").value,
-        tags: document.getElementById("editTags").value
+        tags: document.getElementById("editTags").value.split(',').map(tag => tag.trim())
       };
       
       fetch(`/games/${gameId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
         body: JSON.stringify(gameData)
       })
       .then(res => {
@@ -229,7 +233,10 @@
       try {
         const response = await fetch(`/games/${gameId}`, {
           method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' }
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
         });
         if (!response.ok) throw new Error('Ошибка удаления');
         alert('Игра успешно удалена');
@@ -241,53 +248,55 @@
     }
     
     // Обработка формы загрузки
-    document.getElementById("uploadForm").addEventListener("submit", function(e) {
+    document.getElementById("uploadForm").addEventListener("submit", async function(e) {
       e.preventDefault();
       
-      const formData = new FormData(this);
-      const coverFile = this.cover.files[0];
-      if (coverFile) {
-        const reader = new FileReader();
-        reader.onload = async function(ev) {
-          formData.set('cover', ev.target.result);
-          const body = {};
-          formData.forEach((v, k) => body[k] = v);
-          try {
-            const res = await fetch("/upload", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-            });
-            if (!res.ok) throw new Error("Ошибка загрузки");
-            loadMyGames();
-            this.reset();
-          } catch (err) {
-            console.error("Ошибка:", err);
-            alert(err.message);
-          }
-        };
-        reader.readAsDataURL(coverFile);
-      } else {
-        fetch("/upload", {
-          method: "POST",
+      const formData = new FormData();
+      formData.append('title', this.title.value);
+      formData.append('description', this.description.value);
+      formData.append('genre', this.genre.value);
+      formData.append('tags', this.tags.value);
+      
+      const gameFiles = this.gameFiles.files;
+      for (let i = 0; i < gameFiles.length; i++) {
+        formData.append('gameFiles', gameFiles[i]);
+      }
+      
+      if (this.cover.files[0]) {
+        formData.append('cover', this.cover.files[0]);
+      }
+      
+      try {
+        const response = await fetch('/upload-game-files', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
           body: formData
-        })
-        .then(res => {
-          if (!res.ok) throw new Error("Ошибка загрузки");
-          loadMyGames();
-          this.reset();
-        })
-        .catch(err => {
-          console.error("Ошибка:", err);
-          alert(err.message);
         });
+        
+        if (!response.ok) throw new Error('Ошибка загрузки');
+        
+        const data = await response.json();
+        alert('Игра успешно загружена');
+        loadMyGames();
+        this.reset();
+      } catch (err) {
+        console.error("Ошибка:", err);
+        alert(err.message);
       }
     });
     
     async function logout() {
       try {
-        const res = await fetch("/logout");
-        if (!res.ok) throw new Error('Ошибка выхода');
+        const response = await fetch("/logout", {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        if (!response.ok) throw new Error('Ошибка выхода');
+        localStorage.removeItem('token');
         window.location.href = "index.html";
       } catch (err) {
         console.error("Ошибка выхода:", err);
