@@ -297,6 +297,7 @@
           toggleFavorite(game.id);
         });
         favoriteButton.querySelector("span").textContent = game.isFavorite ? "💔" : "❤️";
+        favoriteButton.title = game.isFavorite ? "Убрать из избранного" : "Добавить в избранное";
 
         const card = clone.querySelector(".game-card");
         card.style.cursor = "pointer";
@@ -338,16 +339,19 @@
           }
         });
 
-        if (!response.ok) throw new Error('Ошибка обновления избранного');
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Ошибка обновления избранного');
+        }
 
-        // Update the local game state
+        // Обновляем локальное состояние
         if (game) {
           game.isFavorite = !isFavorite;
         }
         renderGames(currentGames, currentUser);
       } catch (err) {
         console.error("Ошибка:", err);
-        alert("Не удалось обновить избранное");
+        alert(err.message || "Не удалось обновить избранное");
       }
     }
 
@@ -615,7 +619,7 @@
       .favorite-action {
         position: absolute;
         top: 10px;
-        left: 10px;
+        left: 50px; /* Перемещаем правее рейтинга */
         background: rgba(0, 0, 0, 0.7);
         border: none;
         border-radius: 50%;
@@ -676,5 +680,5 @@
       transform: scale(1.05);
     }
   </style>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932339409d88b058',t:'MTc0NDk2OTQ2Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
