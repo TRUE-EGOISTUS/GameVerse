@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameVerse</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gradient-bg">
+  <header>
+    <div class="header-content">
+      <h1 class="neon-text">
+        <span class="logo-icon">🎮</span> GAMEVERSE
+        <span class="logo-glow"></span>
+      </h1>
+      <div id="authPanel" class="auth-panel">
+        <div class="auth-dropdown">
+          <button class="btn neon-btn dropdown-toggle">🔓 Войти / Рег.</button>
+          <div class="dropdown-menu">
+            <a href="login.html" class="dropdown-item">🚪 Вход</a>
+            <a href="register.html" class="dropdown-item">📝 Регистрация</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <section class="filter-section">
+      <div class="genre-panel glass-card">
+        <h2 class="genre-title">Жанры</h2>
+        <div class="genre-buttons">
+          <button class="genre-button" data-genre="">Все жанры</button>
+          <button class="genre-button" data-genre="Аркада">Аркада</button>
+          <button class="genre-button" data-genre="Стратегия">Стратегия</button>
+          <button class="genre-button" data-genre="Головоломка">Головоломка</button>
+        </div>
+      </div>
+      <div class="filter-panel glass-card">
+        <div class="filter-buttons">
+          <button class="filter-button" data-sort="views">👁 По просмотрам</button>
+          <button class="filter-button" data-sort="rating">⭐ По оценке</button>
+          <button class="filter-button" data-sort="date">📅 По дате</button>
+          <button class="filter-button clear-filters" data-sort="">🔄 Сбросить</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="games-section">
+      <h2 class="section-title">🔥 Все игры</h2>
+      <div class="games-grid">
+        <template id="game-card-template">
+          <div class="game-card">
+            <div class="game-cover-wrapper">
+              <div class="game-cover-placeholder">
+                <span>🎮</span>
+                <span class="no-cover-text">Нет обложки</span>
+              </div>
+              <img class="game-cover" src="" alt="Game cover" onerror="this.style.display='none'; this.previousElementSibling.style.display='flex';">
+              <div class="game-rating">
+                <span class="rating-value"></span>
+                <span class="rating-star">★</span>
+              </div>
+              <button class="action-button info-action" title="Подробнее">
+                <span>ℹ️</span>
+              </button>
+            </div>
+            <div class="game-info">
+              <h3 class="game-title"></h3>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+  </main>
+
+  <div id="ratingModal" class="modal">
+    <div class="modal-content glass-card">
+      <span class="close-btn" onclick="closeRatingModal()">&times;</span>
+      <h2 class="neon-subtitle">Оценить игру</h2>
+      <form id="ratingForm" onsubmit="return submitRating(event)">
+        <input type="hidden" id="selectedGameId">
+        <div class="input-group">
+          <label class="neon-label">Ваша оценка (1-5)</label>
+          <input type="number" id="gameRating" min="1" max="5" required>
+        </div>
+        <div class="input-group">
+          <label class="neon-label">Комментарий</label>
+          <textarea id="gameComment" class="neon-textarea" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn neon-btn">Отправить</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="preloader" class="preloader">
+    <div class="loading-spinner"></div>
+    <p>Загрузка...</p>
+  </div>
+
+  <script>
+    async function checkNotifications() {
+      try {
+        const response = await fetch('/user-data');
+        const user = await response.json();
+        
+        if (user) {
+          const notificationsRes = await fetch('/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user.username })
+          });
+          
+          const data = await notificationsRes.json();
+          
+          if (data.notifications && data.notifications.length > 0) {
+            const messages = data.notifications.map(n => 
+              `Игра "${n.gameName}" была удалена.\nПричина: ${n.reason}\nДата: ${new Date(n.deletedAt).toLocaleString()}`
+            ).join('\n\n');
+            
+            alert(messages);
+          }
+        }
+      } catch (err) {
+        console.error('Ошибка проверки уведомлений:', err);
+      }
+    }
+
+    let currentUser = null;
+    let selectedGameId = null;
+    let currentGames = []; // Добавляем переменную для хранения текущего списка игр
+    let isLoading = true;
+
+    function showLoading() {
+      document.getElementById('preloader').style.display = 'flex';
+      isLoading = true;
+    }
+
+    function hideLoading() {
+      document.getElementById('preloader').style.display = 'none';
+      isLoading = false;
+    }
+
+    async function loadData() {
+      showLoading();
+      try {
+        const token = localStorage.getItem('token');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        const gamesRes = await fetch("/games", { headers });
+        if (!gamesRes.ok) throw new Error('Ошибка загрузки списка игр');
+        
+        currentGames = await gamesRes.json();
+        
+        if (token) {
+          const userRes = await fetch("/user-data", { headers });
+          if (userRes.ok) {
+            currentUser = await userRes.json();
+          } else {
+            localStorage.removeItem('token');
+            currentUser = null;
+          }
+        } else {
+          currentUser = null;
+        }
+
+        updateAuthPanel(currentUser);
+        renderGames(currentGames, currentUser);
+      } catch (err) {
+        console.error("Ошибка загрузки данных:", err);
+        localStorage.removeItem('token');
+        currentUser = null;
+        updateAuthPanel(null);
+      } finally {
+        hideLoading();
+      }
+    }
+
+    async function logout() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          window.location.href = '/';
+          return;
+        }
+
+        const response = await fetch("/logout", {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        // Очищаем локальное хранилище в любом случае
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        currentUser = null;
+
+        // Обновляем UI
+        updateAuthPanel(null);
+        loadData();
+
+        // Перенаправляем на главную
+        window.location.href = '/';
+      } catch (err) {
+        console.error("Ошибка выхода:", err);
+        // Очищаем данные даже при ошибке
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/';
+      }
+    }
+
+    function updateAuthPanel(user) {
+      const authPanel = document.getElementById("authPanel");
+      if (!authPanel) return; // Защита от undefined
+      
+      const token = localStorage.getItem('token');
+      if (user && token) {
+        authPanel.innerHTML = `
+          <div class="user-info">
+            <span>👤 ${user.username}</span>
+            ${user.role === 'admin' 
+              ? `<span class="admin-badge">👑 Администратор</span>
+                 <a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>`
+              : user.role === 'developer'
+              ? '<a href="dashboard.html" class="btn neon-btn">Кабинет</a>'
+              : ''}
+            <button onclick="logout()" class="btn neon-btn">Выйти</button>
+          </div>
+        `;
+      } else {
+        authPanel.innerHTML = `
+          <div class="auth-dropdown">
+            <button class="btn neon-btn dropdown-toggle">🔓 Войти / Рег.</button>
+            <div class="dropdown-menu">
+              <a href="login.html" class="dropdown-item">🚪 Вход</a>
+              <a href="register.html" class="dropdown-item">📝 Регистрация</a>
+            </div>
+          </div>
+        `;
+        initAuthDropdown();
+      }
+    }
+
+    async function getGameIndexPath(game) {
+      // Если путь указан явно, используем его как есть, без добавления /content/
+      if (game.path && typeof game.path === "string") {
+        return `/games/${game.id}/${game.path.split('/').slice(2).join('/')}`;
+      }
+      
+      // Фолбэк: ищем в подпапке simple_game
+      return `/games/${game.id}/simple_game/index.html`;
+    }
+
+    function renderGames(games, user) {
+      const gamesContainer = document.querySelector(".games-grid");
+      const template = document.getElementById("game-card-template");
+      gamesContainer.innerHTML = "";
+
+      games.forEach((game) => {
+        const clone = template.content.cloneNode(true);
+        
+        // Показываем картинку или плейсхолдер
+        const cover = clone.querySelector(".game-cover");
+        const placeholder = clone.querySelector(".game-cover-placeholder");
+        // Показываем обложку, если есть base64 cover
+        if (game.cover && typeof game.cover === "string" && game.cover.startsWith("data:")) {
+          cover.src = game.cover;
+          cover.style.display = "";
+          placeholder.style.display = "none";
+        } else {
+          cover.src = "";
+          cover.style.display = "none";
+          placeholder.style.display = "flex";
+        }
+
+        // Название игры
+        clone.querySelector(".game-title").textContent = game.title || game.name || "Без названия";
+
+        // Рейтинг
+        const rating = getAverageRatingValue(game.ratings);
+        clone.querySelector(".rating-value").textContent = rating.toFixed(1);
+
+        // Кнопка действия (информация)
+        const actionButton = clone.querySelector(".action-button.info-action");
+        actionButton.addEventListener("click", (e) => {
+          e.stopPropagation();
+          // Ripple effect
+          const ripple = document.createElement('span');
+          ripple.className = 'ripple';
+          const rect = actionButton.getBoundingClientRect();
+          ripple.style.left = (e.clientX - rect.left) + 'px';
+          ripple.style.top = (e.clientY - rect.top) + 'px';
+          ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
+          actionButton.appendChild(ripple);
+          setTimeout(() => ripple.remove(), 500);
+          // Открыть страницу описания
+          window.open(`descr_game.html?id=${game.id}`, "_blank");
+        });
+
+        // Запуск игры по клику на карточку
+        const card = clone.querySelector(".game-card");
+        card.style.cursor = "pointer";
+        card.addEventListener("click", async () => {
+          const token = localStorage.getItem('token');
+          const basePath = `${game.path || `/games/${game.id}/simple_game/index.html`}`;
+          const url = basePath.startsWith('/games/') ? basePath : `/games/${game.id}/${basePath}`;
+
+          // Отправляем запрос на увеличение просмотров с токеном
+          fetch(`/games/${game.id}/view`, {
+            method: "POST",
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          }).catch(console.error);
+
+          // Открываем игру в новом окне
+          window.open(url, "_blank");
+        });
+
+        gamesContainer.appendChild(clone);
+      });
+    }
+
+    async function deleteGame(gameId) {
+      if (!currentUser || currentUser.role !== 'admin') return;
+      
+      const reason = prompt('Укажите причину удаления игры:');
+      if (!reason) return;
+
+      if (!confirm('Вы уверены, что хотите удалить эту игру?')) return;
+
+      try {
+        const response = await fetch(`/admin/games/${gameId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason })
+        });
+
+        if (!response.ok) throw new Error('Ошибка удаления');
+        
+        alert('Игра успешно удалена');
+        loadData(); // Перезагружаем список игр
+      } catch (err) {
+        console.error('Ошибка:', err);
+        alert('Ошибка при удалении игры');
+      }
+    }
+
+    function getAverageRating(ratings) {
+      if (!ratings || ratings.length === 0) return '0.0 ★';
+      const avg = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
+      return avg.toFixed(1) + ' ★';
+    }
+
+    function applyFilters() {
+      try {
+        showLoading();
+        const token = localStorage.getItem('token');
+        const activeGenreButton = document.querySelector('.genre-button.active');
+        const activeFilterButton = document.querySelector('.filter-button.active:not(.clear-filters)');
+        
+        const params = new URLSearchParams();
+        
+        if (activeGenreButton && activeGenreButton.dataset.genre) {
+          params.append('genre', activeGenreButton.dataset.genre);
+        }
+        
+        if (activeFilterButton && activeFilterButton.dataset.sort) {
+          params.append('sort', activeFilterButton.dataset.sort);
+        }
+
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        // Отправляем запрос
+        fetch(`/games?${params.toString()}`, { 
+          method: 'GET',
+          headers: headers
+        })
+        .then(response => {
+          if (!response.ok) throw new Error('Network response was not ok');
+          return response.json();
+        })
+        .then(games => {
+          if (!Array.isArray(games)) {
+            console.warn('Получен неверный формат данных:', games);
+            games = []; // Если не массив, используем пустой массив
+          }
+          currentGames = games;
+          renderGames(games, currentUser);
+        })
+        .catch(err => {
+          console.error("Ошибка применения фильтров:", err);
+          currentGames = [];
+          renderGames([], currentUser);
+        })
+        .finally(() => {
+          hideLoading();
+        });
+
+      } catch (err) {
+        console.error("Ошибка:", err);
+        hideLoading();
+        currentGames = [];
+        renderGames([], currentUser);
+      }
+    }
+
+    function initFilters() {
+      const genreButtons = document.querySelectorAll('.genre-button');
+      const filterButtons = document.querySelectorAll('.filter-button');
+
+      // Обработчики для жанров
+      genreButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          genreButtons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+          applyFilters();
+        });
+      });
+
+      // Обработчики для сортировки
+      filterButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const isClearButton = button.classList.contains('clear-filters');
+          
+          if (isClearButton) {
+            // Сброс всех фильтров
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            genreButtons.forEach(btn => btn.classList.remove('active'));
+            // Загружаем все игры без фильтров
+            loadData();
+            return;
+          }
+
+          // Переключаем активную кнопку сортировки
+          filterButtons.forEach(btn => {
+            if (!btn.classList.contains('clear-filters')) {
+              btn.classList.remove('active');
+            }
+          });
+          button.classList.add('active');
+          applyFilters();
+        });
+      });
+    }
+
+    function getAverageRatingValue(ratings) {
+      if (!ratings || ratings.length === 0) return 0;
+      return ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
+    }
+
+    function initAuthDropdown() {
+      const authDropdown = document.querySelector('.auth-dropdown');
+      const dropdownToggle = document.querySelector('.dropdown-toggle');
+
+      if (dropdownToggle) {
+        // Добавляем обработчик клика на кнопку
+        dropdownToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          authDropdown.classList.toggle('active');
+        });
+
+        // Закрываем выпадающее меню при клике вне его
+        document.addEventListener('click', (e) => {
+          if (!authDropdown.contains(e.target)) {
+            authDropdown.classList.remove('active');
+          }
+        });
+
+        // Закрываем меню при переходе по ссылке
+        const dropdownItems = document.querySelectorAll('.dropdown-item');
+        dropdownItems.forEach(item => {
+          item.addEventListener('click', () => {
+            authDropdown.classList.remove('active');
+          });
+        });
+      }
+    }
+
+    function launchGame(path, gameId) {
+      const token = localStorage.getItem('token');
+      
+      fetch(`/games/${gameId}/view`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
+      .then(() => {
+        // Упрощаем путь, убирая дублирование ID игры
+        const simplePath = path.split('/games/')[1].split('/');
+        simplePath.shift(); // Удаляем ID игры из пути
+        const finalPath = `/games/${gameId}/content/${simplePath.join('/')}`;
+        window.open(finalPath, '_blank');
+      })
+      .catch(err => console.error('Ошибка:', err));
+    }
+
+    function showRatingModal(gameId) {
+      if (!currentUser) {
+        alert('Пожалуйста, войдите в систему, чтобы оценить игру');
+        return;
+      }
+      
+      selectedGameId = gameId;
+      document.getElementById('selectedGameId').value = gameId;
+      document.getElementById('gameRating').value = '';
+      document.getElementById('gameComment').value = '';
+      document.getElementById('ratingModal').style.display = 'flex';
+    }
+
+    function closeRatingModal() {
+      document.getElementById('ratingModal').style.display = 'none';
+    }
+
+    async function submitRating(e) {
+      e.preventDefault();
+      const rating = document.getElementById('gameRating').value;
+      const comment = document.getElementById('gameComment').value;
+
+      try {
+        const response = await fetch(`/games/${selectedGameId}/rate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ rating, comment })
+        });
+
+        if (response.ok) {
+          alert('Спасибо за ваш отзыв!');
+          closeRatingModal();
+          loadData(); // Обновляем список игр
+        } else {
+          throw new Error('Ошибка сохранения оценки');
+        }
+      } catch (err) {
+        console.error('Ошибка:', err);
+        alert(err.message);
+      }
+    }
+
+    function editGame(gameId) {
+      window.location.href = `edit-game.html?id=${gameId}`;
+    }
+
+    function updateNavigation() {
+      try {
+        fetch("/current-user")
+          .then(res => res.json())
+          .then(user => {
+            const authPanel = document.getElementById("authPanel");
+            if (user) {
+              authPanel.innerHTML = `
+                <div class="user-info">
+                  <span>👤 ${user.username}</span>
+                  ${
+                    user.role === "admin"
+                      ? '<a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>'
+                      : user.role === "developer"
+                      ? '<a href="dashboard.html" class="btn neon-btn">Кабинет</a>'
+                      : ''
+                  }
+                  <button onclick="logout()" class="btn neon-btn">Выйти</button>
+                </div>
+              `;
+            }
+          });
+      } catch (err) {
+        console.error("Ошибка обновления навигации:", err);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadData();
+      checkNotifications();
+      initAuthDropdown();
+      updateNavigation();
+      initFilters(); // Инициализация фильтров
+    });
+
+    const styles = `
+      .preloader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+
+      .preloader p {
+        margin-top: 1rem;
+        color: var(--neon-blue);
+      }
+    `;
+
+    const styleSheet = document.createElement("style");
+    styleSheet.textContent = styles;
+    document.head.appendChild(styleSheet);
+
+    const errorStyles = `
+      .error-message {
+        width: 100%;
+        max-width: 600px;
+        margin: 2rem auto;
+        text-align: center;
+      }
+      
+      .error-card {
+        background: rgba(255, 0, 0, 0.1);
+        border: 1px solid rgba(255, 0, 0, 0.3);
+        padding: 2rem;
+      }
+      
+      .error-card h3 {
+        color: #ff4b4b;
+        margin-bottom: 1rem;
+      }
+      
+      .error-card p {
+        margin-bottom: 1.5rem;
+      }
+    `;
+
+    document.head.insertAdjacentHTML('beforeend', `<style>${errorStyles}</style>`);
+  </script>
+
+  <style>
+    .admin-panel {
+      display: none;
+    }
+  </style>
+</body>
+</html>

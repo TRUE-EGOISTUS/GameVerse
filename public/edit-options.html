@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Выбор редактирования</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gradient-bg">
+    <header>
+        <div class="header-content">
+            <h1 class="neon-text">✏️ РЕДАКТИРОВАНИЕ ИГРЫ</h1>
+            <nav class="auth-panel">
+                <a href="dashboard.html" class="btn neon-btn">← Назад</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main-content centered-options">
+        <div class="glass-card options-card">
+            <h2 class="neon-subtitle">Выберите тип редактирования</h2>
+            <div class="option-buttons">
+                <a id="metadataBtn" class="btn neon-btn option-btn">
+                    📝 Основная информация
+                </a>
+                <a id="filesBtn" class="btn neon-btn option-btn">
+                    📁 Редактор файлов
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameId = new URLSearchParams(window.location.search).get('id');
+            if (!gameId) {
+                alert('Игра не указана');
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            document.getElementById('metadataBtn').href = `edit-metadata.html?id=${gameId}`;
+            document.getElementById('filesBtn').href = `edit-files.html?id=${gameId}`;
+        });
+
+        async function saveChanges() {
+            const gameId = new URLSearchParams(window.location.search).get('id');
+            const token = localStorage.getItem('token');
+            
+            if (!token || !gameId) {
+                alert('Необходима авторизация');
+                return;
+            }
+
+            const formData = new FormData();
+            const coverFile = document.querySelector('input[type="file"]').files[0];
+            
+            // Добавляем данные в FormData
+            formData.append('title', document.getElementById('gameTitle').value);
+            formData.append('description', document.getElementById('gameDescription').value);
+            formData.append('genre', document.getElementById('gameGenre').value);
+            if (coverFile) {
+                formData.append('cover', coverFile);
+            }
+
+            try {
+                const response = await fetch(`/games/${gameId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка сохранения');
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    alert('Изменения сохранены успешно!');
+                    window.location.reload();
+                } else {
+                    throw new Error(result.error || 'Неизвестная ошибка');
+                }
+            } catch (err) {
+                console.error('Ошибка:', err);
+                alert('Ошибка при сохранении изменений: ' + err.message);
+            }
+        }
+
+        // Добавляем обработчик события submit для формы
+        document.querySelector('form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveChanges();
+        });
+    </script>
+</body>
+</html>

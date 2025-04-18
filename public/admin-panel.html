@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админ-панель</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gradient-bg">
+  <header>
+    <div class="header-content">
+      <h1 class="neon-text">👑 Админ-панель</h1>
+      <nav>
+        <a href="index.html" class="btn neon-btn">← Назад</a>
+      </nav>
+    </div>
+  </header>
+  <main class="main-content">
+    <div class="glass-card">
+      <h2 class="neon-subtitle">📋 Список пользователей</h2>
+      <div id="userList" class="user-list"></div>
+    </div>
+  </main>
+  <script>
+    async function loadUsers() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('Доступ запрещен');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        const response = await fetch("/admin/users", {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.status === 403) {
+          alert('Нет прав доступа');
+          window.location.href = '/';
+          return;
+        }
+
+        if (!response.ok) throw new Error("Ошибка загрузки пользователей");
+        
+        const users = await response.json();
+        const userList = document.getElementById("userList");
+        userList.innerHTML = users.map(user => `
+          <div class="user-card">
+            <div class="user-info-header">
+              <span class="user-name">👤 <strong>${user.username}</strong></span>
+              <span class="user-status ${user.online ? 'status-online' : 'status-offline'}">
+                ${user.online ? "🟢 В сети" : "🔴 Не в сети"}
+              </span>
+            </div>
+            <div class="user-role-badge role-${user.role}">
+              ${
+                user.role === 'admin' ? '👑 Администратор' :
+                user.role === 'developer' ? '💻 Разработчик' :
+                '🎮 Пользователь'
+              }
+            </div>
+          </div>
+        `).join("");
+      } catch (err) {
+        console.error("Ошибка:", err);
+        alert("Не удалось загрузить список пользователей");
+      }
+    }
+
+    // Проверяем права доступа при загрузке страницы
+    document.addEventListener("DOMContentLoaded", async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/login.html';
+        return;
+      }
+
+      try {
+        const response = await fetch("/user-data", {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Ошибка авторизации');
+        }
+
+        const user = await response.json();
+        if (user.role !== 'admin') {
+          alert('Доступ запрещен');
+          window.location.href = '/';
+          return;
+        }
+
+        loadUsers();
+        // Обновляем список каждые 10 секунд
+        setInterval(loadUsers, 10000);
+      } catch (err) {
+        console.error('Ошибка:', err);
+        window.location.href = '/login.html';
+      }
+    });
+  </script>
+
+  <style>
+    .user-card {
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      transition: all 0.3s ease;
+    }
+
+    .user-info-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .user-role-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+
+    .role-admin {
+      background: linear-gradient(135deg, #ff416c, #ff4b2b);
+      color: white;
+    }
+
+    .role-developer {
+      background: linear-gradient(135deg, #4b6cb7, #182848);
+      color: white;
+    }
+
+    .role-user {
+      background: linear-gradient(135deg, #24C6DC, #514A9D);
+      color: white;
+    }
+
+    .user-status {
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .status-online {
+      background: rgba(76, 175, 80, 0.2);
+      color: #4CAF50;
+    }
+
+    .status-offline {
+      background: rgba(244, 67, 54, 0.2);
+      color: #f44336;
+    }
+  </style>
+</body>
+</html>

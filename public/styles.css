@@ -1,0 +1,1579 @@
+/* styles.css */
+/* GameVerse main styles */
+:root {
+  --neon-blue: #2196f3;
+  --neon-purple: #9c27b0;
+  --dark-bg: #0a0a0f;
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --text-primary: rgba(255, 255, 255, 0.95);
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --gradient: linear-gradient(135deg, var(--neon-purple), var(--neon-blue));
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Orbitron', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* Center content vertically and horizontally */
+body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 0;
+  margin: 0;
+  background: var(--dark-bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+  overflow-x: hidden;
+  position: relative;
+}
+
+body.light-mode {
+  background: #f5f5f5;
+  color: #333;
+}
+
+/* Фоновые эффекты */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    linear-gradient(45deg, 
+      rgba(156, 39, 176, 0.1) 20%, 
+      rgba(33, 150, 243, 0.1) 80%
+    ),
+    radial-gradient(circle at 80% 20%, 
+      rgba(156, 39, 176, 0.15) 10%, 
+      transparent 40%
+    );
+  z-index: -1;
+  animation: gridPulse 20s infinite;
+}
+
+@keyframes gridPulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 1px,
+      rgba(255,255,255,0.02) 2px,
+      rgba(255,255,255,0.02) 3px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 1px,
+      rgba(255,255,255,0.02) 2px,
+      rgba(255,255,255,0.02) 3px
+    );
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Анимации */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow {
+  0%, 100% { filter: drop-shadow(0 0 5px var(--neon-purple)); }
+  50% { filter: drop-shadow(0 0 20px var(--neon-blue)); }
+}
+
+/* Fixed header improvements */
+header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  background: linear-gradient(180deg, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 100%);
+  border-bottom: 2px solid rgba(255,65,108,0.3);
+  box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+  padding: 1rem 2rem;
+  min-height: 80px; /* Увеличиваем высоту для удобства */
+  display: flex;
+  align-items: center;
+}
+
+.header-content {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  header {
+    padding: 1rem;
+  }
+
+  .header-content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* Header text adjustments */
+.neon-text {
+  font-size: 2.5rem;
+  white-space: nowrap;
+  margin: 0;
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255, 65, 108, 0.8), 0 0 20px rgba(255, 65, 108, 0.6);
+  animation: neonGlow 2s infinite alternate;
+}
+
+@keyframes neonGlow {
+  from {
+    text-shadow: 0 0 10px rgba(255, 65, 108, 0.8), 0 0 20px rgba(255, 65, 108, 0.6);
+  }
+  to {
+    text-shadow: 0 0 20px rgba(255, 65, 108, 1), 0 0 30px rgba(255, 65, 108, 0.8);
+  }
+}
+
+body.light-mode .neon-text {
+  background: linear-gradient(135deg, #ff9800, #ffc107);
+}
+
+/* Основной контент */
+.main-content {
+  margin-top: 90px; /* header height + some padding */
+  width: 100%;
+  max-width: 1400px;
+  padding: 2rem;
+  min-height: calc(100vh - 90px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-top: 120px;
+    padding: 1rem;
+  }
+}
+
+/* Gaming-style buttons */
+.btn, .neon-btn, .play-btn, button[type="submit"], .rate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0.5rem;
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem; /* Уменьшаем размер шрифта */
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  position: relative;
+  overflow: hidden;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-decoration: none;
+  transform-origin: center;
+}
+
+.btn::before, .neon-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: 0.5s;
+}
+
+.btn:hover::before, .neon-btn:hover::before {
+  left: 100%;
+}
+
+.btn:hover, .neon-btn:hover, .play-btn:hover, .rate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255,65,108,0.4);
+  animation: buttonPulse 1.5s infinite;
+}
+
+@keyframes buttonPulse {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(255, 65, 108, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(255, 65, 108, 0.8);
+  }
+}
+
+/* Add specific styles for rate button */
+.rate-btn {
+  background: linear-gradient(135deg, #ff9d00, #ff6b6b);
+  border: none;
+  padding: 0.8rem 1.5rem;
+  color: white;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.rate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 157, 0, 0.4);
+}
+
+/* Gaming-style cards */
+.glass-card, .game-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 2rem;
+  background: rgba(0,0,0,0.8);
+  border: 1px solid rgba(255,65,108,0.2);
+  border-radius: 16px;
+  margin: 1rem auto;
+  max-width: 90%;
+  text-align: left;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 65, 108, 0.3);
+  transition: all 0.3s ease;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+.glass-card:hover, .game-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255,65,108,0.5);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3), 
+              0 0 30px rgba(255,65,108,0.2);
+}
+
+/* Обновленные стили для карточек игр */
+.game-card {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(255, 65, 108, 0.2);
+}
+
+.game-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(255, 65, 108, 0.3);
+  border-color: rgba(255, 65, 108, 0.5);
+}
+
+.game-cover-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.game-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.3),
+    rgba(0, 0, 0, 0.8)
+  );
+}
+
+.game-card:hover .game-cover {
+  transform: scale(1.05);
+}
+
+.game-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 15px;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.7) 70%,
+    transparent 100%
+  );
+  color: white;
+  z-index: 2;
+}
+
+.game-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0;
+  color: white;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-rating {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 8px 12px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 3;
+}
+
+.rating-value {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.rating-star {
+  color: #ffd700;
+  font-size: 1.1rem;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.action-button {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 3;
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.game-card:hover .action-button {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.action-button:hover {
+  background: rgba(255, 65, 108, 0.8);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.game-cover-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, 
+    rgba(0, 0, 0, 0.9),
+    rgba(20, 20, 30, 0.9)
+  );
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 2rem;
+}
+
+.no-cover-text {
+  font-size: 0.9rem;
+  margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Обновляем сетку игр */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem;
+  padding: 2rem;
+  margin: 0 auto;
+  max-width: 1400px;
+}
+
+.game-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 320px;
+}
+
+.game-card:hover .game-cover {
+  transform: scale(1.05);
+}
+
+.game-cover-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.game-cover-wrapper::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(to bottom, 
+    rgba(0, 0, 0, 0.6) 0%, 
+    rgba(0, 0, 0, 0.3) 50%, 
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.game-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: rgba(0, 0, 0, 0.9);
+  transition: transform 0.3s ease;
+}
+
+.game-rating {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 5px 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.rating-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.rating-star {
+  color: #ffd700;
+  font-size: 1.2rem;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.game-card .game-buttons {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch; /* Выравниваем кнопки по ширине */
+}
+
+.game-card .btn {
+  width: 100%;
+  margin: 0;
+}
+
+.game-buttons .play-btn,
+.game-buttons .rate-btn {
+  width: 100%; /* Устанавливаем одинаковую ширину */
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.admin-buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch; /* Выравниваем кнопку "Удалить" */
+}
+
+@media (max-width: 768px) {
+  .glass-card, .game-card {
+    max-width: 100%;
+    padding: 1.5rem;
+  }
+}
+
+/* Gaming-style inputs */
+input, textarea, select {
+  width: 100%;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: white;
+  font-size: 1rem;
+  padding: 1rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: #ff416c;
+  box-shadow: 0 0 15px rgba(255,65,108,0.2);
+}
+
+/* Style improvements for form inputs */
+.input-group {
+  margin-bottom: 1.5rem;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Improve file input styling */
+input[type="file"] {
+  width: 100%;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 65, 108, 0.3);
+  border-radius: 8px;
+  color: white;
+}
+
+.file-upload input[type="file"] {
+  display: none; /* Скрываем стандартный элемент */
+}
+
+.file-upload label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-decoration: none;
+  text-align: center;
+}
+
+.file-upload label:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
+  animation: buttonPulse 1.5s infinite;
+}
+
+/* Gaming-style dropdowns */
+.dropdown-menu {
+  background: rgba(0, 0, 0, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 65, 108, 0.3);
+}
+
+/* Gaming-style modals */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  width: 90%;
+  max-width: 500px;
+  background: rgba(0, 0, 0, 0.9);
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 65, 108, 0.3);
+  position: relative;
+}
+
+/* Gaming-style scrollbars */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #ff4b2b, #ff416c);
+}
+
+/* Gaming-style footer */
+footer {
+  margin-top: auto;
+  padding: 1rem;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.8);
+  border-top: 2px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+/* Game list improvements */
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+  padding: 2rem;
+  justify-content: center; /* Center the grid */
+  margin: 0 auto;
+  max-width: 1400px;
+}
+
+/* Filter panel improvements */
+.games-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 2rem auto;
+  max-width: 800px;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+}
+
+.filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.genre-select {
+  width: 200px;
+  margin: 0 auto;
+}
+
+.filter-button {
+  padding: 0.8rem 1.5rem;
+  background: rgba(255, 65, 108, 0.1);
+  border: 1px solid rgba(255, 65, 108, 0.3);
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-button:hover,
+.filter-button.active {
+  background: rgba(255, 65, 108, 0.3);
+  border-color: rgba(255, 65, 108, 0.6);
+  transform: translateY(-2px);
+}
+
+/* New filter panel styles */
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 65, 108, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  max-width: fit-content;
+  margin: 1rem auto;
+}
+
+.genre-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.genre-button {
+  padding: 0.5rem 1rem; /* Увеличиваем отступы для симметрии */
+  font-size: 0.85rem;
+  width: auto;
+  max-width: 200px; /* Увеличиваем максимальную длину кнопок */
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.genre-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
+}
+
+.genre-button.active {
+  background: linear-gradient(135deg, #4b6cb7, #182848);
+  box-shadow: 0 5px 15px rgba(75, 108, 183, 0.4);
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.filter-button {
+  padding: 0.5rem 1rem;
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  border-radius: 8px;
+  color: white;
+  font-size: 0.85rem; /* Уменьшаем размер шрифта */
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-button:hover,
+.filter-button.active {
+  background: rgba(33, 150, 243, 0.3);
+  border-color: rgba(33, 150, 243, 0.6);
+}
+
+/* Navigation improvements */
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.nav-link {
+  color: rgba(255,255,255,0.8);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.nav-link:hover {
+  color: #ff416c;
+}
+
+@media (max-width: 768px) {
+  .nav-links {
+    flex-direction: column;
+  }
+}
+
+/* Auth panel improvements */
+.auth-panel {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: auto;
+}
+
+/* Auth dropdown improvements */
+.auth-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 120%;
+  right: 0;
+  min-width: 200px;
+  background: rgba(0, 0, 0, 0.95);
+  border: 1px solid rgba(255, 65, 108, 0.2);
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: none;
+  flex-direction: column;
+  gap: 0.5rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+  z-index: 1000;
+}
+
+.auth-dropdown.active .dropdown-menu {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dropdown-toggle {
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  border: none;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dropdown-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
+  animation: buttonPulse 1.5s infinite;
+}
+
+.dropdown-item {
+  padding: 0.8rem 1rem;
+  color: white;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 65, 108, 0.1);
+  transform: translateX(5px);
+  color: #ff416c;
+}
+
+/* User profile improvements */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 1rem;
+  background: rgba(255,255,255,0.05);
+  border-radius: 30px;
+}
+
+/* Loading state improvements */
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
+  position: relative;
+}
+
+.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  border: 3px solid #ff416c;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Improve developer dashboard */
+.dashboard-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  gap: 2rem;
+}
+
+.upload-section {
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(255, 65, 108, 0.2);
+}
+
+.upload-section h2 {
+  margin-bottom: 1.5rem;
+  color: #ff416c;
+}
+
+.file-upload {
+  border: 2px dashed rgba(255, 65, 108, 0.3);
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  transition: all 0.3s ease;
+  margin: 1rem 0;
+}
+
+.file-upload:hover {
+  border-color: #ff416c;
+  background: rgba(255, 65, 108, 0.1);
+}
+
+/* Game card metadata styling */
+.game-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Rating button container */
+.rating-container {
+  margin-top: auto;
+  width: 100%;
+}
+
+/* Remove text decoration from all links */
+a {
+  text-decoration: none;
+}
+
+/* Admin badge styling */
+.admin-badge {
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 10px rgba(255, 65, 108, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  animation: badgePulse 2s infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    box-shadow: 0 2px 10px rgba(255, 65, 108, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 2px 15px rgba(255, 65, 108, 0.5);
+    transform: scale(1.05);
+  }
+}
+
+/* User list and user cards */
+.user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.user-card {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 1rem;
+  color: white;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  transition: transform 0.3s ease;
+}
+
+.user-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(255, 255, 255, 0.3);
+}
+
+/* New styles for improved layout */
+.main-container {
+  margin-top: 100px; /* Отступ для учета высоты хедера */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.filter-section {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem; /* Добавляем отступ снизу */
+}
+
+.games-section {
+  width: 100%;
+  margin-top: 2rem; /* Отступ сверху для разделения с фильтрами */
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+  padding: 2rem;
+  justify-content: center;
+  margin: 0 auto;
+  max-width: 1400px;
+}
+
+.section-title {
+  text-align: center;
+  font-size: 2rem;
+  color: var(--neon-blue);
+  margin-bottom: 1rem;
+}
+
+/* New styles for genre panel */
+.genre-panel {
+  position: absolute;
+  top: 120px; /* Увеличиваем отступ от хедера */
+  left: 20px;
+  width: 200px;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 65, 108, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.genre-title {
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  color: var(--text-primary); /* Используем основной цвет текста сайта */
+  text-align: center;
+  margin-bottom: 1rem;
+  text-shadow: none; /* Убираем фоновую подсветку */
+}
+
+.genre-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.genre-button {
+  padding: 0.5rem 1rem; /* Увеличиваем отступы для симметрии */
+  font-size: 0.85rem;
+  width: auto;
+  max-width: 200px; /* Увеличиваем максимальную длину кнопок */
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.genre-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
+}
+
+.genre-button.active {
+  background: linear-gradient(135deg, #4b6cb7, #182848);
+  box-shadow: 0 5px 15px rgba(75, 108, 183, 0.4);
+}
+
+.genre-title, .section-title {
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  color: var(--text-primary); /* Цвет текста совпадает с текстом хедера */
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.small-genre-button {
+  padding: 0.4rem 0.8rem; /* Уменьшаем размер кнопок */
+  font-size: 0.75rem; /* Уменьшаем размер текста */
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.small-genre-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
+}
+
+.small-genre-button.active {
+  background: linear-gradient(135deg, #4b6cb7, #182848);
+  box-shadow: 0 5px 15px rgba(75, 108, 183, 0.4);
+}
+
+.genre-button, .filter-button {
+  padding: 0.8rem 1.5rem;
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem; /* Уменьшаем размер шрифта */
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.genre-button:hover, .filter-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
+}
+
+.genre-button.active, .filter-button.active {
+  background: linear-gradient(135deg, #4b6cb7, #182848);
+  box-shadow: 0 5px 15px rgba(75, 108, 183, 0.4);
+}
+
+/* --- descr_game.html layout --- */
+.descr-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--dark-bg);
+  color: var(--text-primary);
+  animation: fadeIn 0.7s cubic-bezier(.4,2,.3,1);
+}
+
+.descr-left-panel {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  width: 340px;
+  min-width: 300px;
+  max-width: 400px;
+  height: 100vh;
+  background: rgba(20,20,30,0.96);
+  border-right: 2px solid rgba(255,65,108,0.15);
+  box-shadow: 8px 0 32px 0 rgba(33,150,243,0.13), 0 0 0 1px #2196f322;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  z-index: 10;
+  animation: slideInLeft 0.7s cubic-bezier(.4,2,.3,1);
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-60px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.descr-cover {
+  width: 100%;
+  aspect-ratio: 3/4;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(33,150,243,0.15);
+  background: #222;
+  animation: popIn 0.7s cubic-bezier(.4,2,.3,1);
+}
+
+@keyframes popIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.descr-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  font-size: 1.05rem;
+}
+
+.descr-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+}
+
+.descr-meta-row .meta-label {
+  color: var(--neon-blue);
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.descr-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+
+.descr-tag {
+  background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.2em 0.7em;
+  font-size: 0.85em;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-right: 0.2em;
+  margin-bottom: 0.2em;
+  box-shadow: 0 1px 4px rgba(255,65,108,0.12);
+}
+
+.descr-right-panel {
+  flex: 1;
+  min-width: 0;
+  padding: 2.5rem 2rem 2rem 2.5rem;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+@media (max-width: 900px) {
+  .descr-layout {
+    flex-direction: column;
+  }
+  .descr-left-panel {
+    position: static;
+    width: 100%;
+    max-width: 100vw;
+    height: auto;
+    border-right: none;
+    border-bottom: 2px solid rgba(255,65,108,0.15);
+    flex-direction: row;
+    gap: 2rem;
+    padding: 1.2rem 1rem;
+  }
+  .descr-right-panel {
+    padding: 1.5rem 0.5rem;
+  }
+}
+
+/* --- Описание игры --- */
+.descr-title {
+  font-size: 2.2rem;
+  font-weight: bold;
+  color: var(--neon-blue);
+  margin-bottom: 0.5rem;
+  text-shadow: 0 2px 12px #2196f355;
+  letter-spacing: 1.5px;
+  animation: fadeIn 1s cubic-bezier(.4,2,.3,1);
+}
+
+.descr-author {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.descr-description {
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.02);
+  border-radius: 10px;
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 2.5rem;
+  box-shadow: 0 2px 12px rgba(33,150,243,0.05);
+  line-height: 1.7;
+  word-break: break-word;
+  animation: fadeIn 1.2s cubic-bezier(.4,2,.3,1);
+}
+
+/* --- Оценка и бары --- */
+.rating-summary-block {
+  margin-bottom: 2.5rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  padding: 1.5rem 1.5rem 1.2rem 1.5rem;
+  box-shadow: 0 2px 12px rgba(255,65,108,0.08);
+  animation: fadeIn 1.4s cubic-bezier(.4,2,.3,1);
+}
+
+.rating-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  margin-bottom: 1.2rem;
+}
+
+.rating-big-value {
+  font-size: 3.2rem;
+  font-weight: bold;
+  color: #ffd700;
+  text-shadow: 0 2px 12px #ffd70055;
+  margin-right: 0.5rem;
+  letter-spacing: 2px;
+}
+
+.rating-star-big {
+  font-size: 2.2rem;
+  color: #ffd700;
+  margin-left: 0.1em;
+}
+
+.rating-bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.rating-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.rating-bar-label {
+  width: 2.2em;
+  text-align: right;
+  font-size: 1.1em;
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.rating-bar {
+  flex: 1;
+  height: 18px;
+  border-radius: 8px;
+  background: #222;
+  overflow: hidden;
+  position: relative;
+  margin-right: 0.5em;
+  box-shadow: 0 1px 6px rgba(33,150,243,0.08);
+}
+.rating-bar-inner {
+  height: 100%;
+  border-radius: 8px;
+  transition: width 0.7s cubic-bezier(.4,2,.3,1);
+  min-width: 0;
+  box-shadow: 0 0 8px #2196f355;
+  animation: barGrow 1s cubic-bezier(.4,2,.3,1);
+}
+@keyframes barGrow {
+  from { width: 0; }
+  to { /* width set inline */ }
+}
+.rating-bar-5 { background: linear-gradient(90deg, #ffd700 60%, #ffe066 100%); }
+.rating-bar-4 { background: linear-gradient(90deg, #4caf50 60%, #8bc34a 100%); }
+.rating-bar-3 { background: linear-gradient(90deg, #2196f3 60%, #00bcd4 100%); }
+.rating-bar-2 { background: linear-gradient(90deg, #ff9800 60%, #ffc107 100%); }
+.rating-bar-1 { background: linear-gradient(90deg, #ff416c 60%, #ff4b2b 100%); }
+
+.rating-bar-count {
+  min-width: 2.2em;
+  text-align: left;
+  font-size: 1em;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* --- Отзывы --- */
+.reviews-section {
+  margin-top: 2.5rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  padding: 1.5rem 1.5rem 1.2rem 1.5rem;
+  box-shadow: 0 2px 12px rgba(33,150,243,0.08);
+}
+
+.reviews-title {
+  font-size: 1.4rem;
+  color: var(--neon-blue);
+  margin-bottom: 1.2rem;
+  font-weight: bold;
+}
+
+.review-card {
+  background: rgba(0,0,0,0.7);
+  border-radius: 8px;
+  margin-bottom: 1.2rem;
+  padding: 1rem 1.2rem;
+  box-shadow: 0 1px 6px rgba(33,150,243,0.08);
+  border-left: 4px solid #2196f3;
+  position: relative;
+  animation: fadeIn 0.7s cubic-bezier(.4,2,.3,1);
+  transition: border-color 0.3s;
+}
+
+.review-card:hover {
+  border-left: 4px solid #ff416c;
+  box-shadow: 0 2px 16px #ff416c22;
+}
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.05em;
+}
+
+.review-author {
+  color: #ff416c;
+  font-weight: 600;
+}
+
+.review-rating {
+  color: #ffd700;
+  font-weight: 600;
+}
+
+.review-date {
+  color: var(--text-secondary);
+  font-size: 0.95em;
+}
+
+.review-text {
+  color: var(--text-primary);
+  font-size: 1.08em;
+  margin-top: 0.2em;
+  word-break: break-word;
+}
+
+/* --- Отправка отзыва --- */
+.add-review-form {
+  margin-top: 2rem;
+  background: rgba(0,0,0,0.7);
+  border-radius: 10px;
+  padding: 1.2rem 1.5rem;
+  box-shadow: 0 1px 6px rgba(33,150,243,0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: fadeIn 1.7s cubic-bezier(.4,2,.3,1);
+}
+
+.add-review-form label {
+  color: var(--neon-blue);
+  font-weight: 600;
+  margin-bottom: 0.3em;
+}
+
+.add-review-form input[type="number"] {
+  width: 80px;
+  font-size: 1.2em;
+  padding: 0.3em 0.7em;
+  border-radius: 6px;
+  border: 1px solid #2196f3;
+  background: #181828;
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.add-review-form textarea {
+  min-height: 60px;
+  border-radius: 6px;
+  border: 1px solid #2196f3;
+  background: #181828;
+  color: var(--text-primary);
+  font-size: 1.05em;
+  padding: 0.7em 1em;
+  resize: vertical;
+}
+
+.add-review-form button {
+  align-self: flex-start;
+  margin-top: 0.5em;
+  padding: 0.7em 2em;
+  font-size: 1.1em;
+  background: linear-gradient(135deg, #ff416c, #2196f3);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 0 2px 8px rgba(33,150,243,0.13);
+}
+
+.add-review-form button:hover {
+  background: linear-gradient(135deg, #2196f3, #ff416c);
+  transform: scale(1.04);
+}
+
+.add-review-form button:active {
+  transform: scale(0.96) rotate(-2deg);
+  background: linear-gradient(135deg, #ff416c, #ffd700);
+}

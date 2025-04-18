@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Вход — GameVerse</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gradient-bg login-page">
+  <header class="container">
+    <div class="header-content">
+      <h1 class="neon-text">🔒 ВХОД В СИСТЕМУ</h1>
+      <nav class="auth-panel">
+        <a href="index.html" class="btn neon-btn">← Назад</a>
+      </nav>
+    </div>
+  </header>
+  <main class="main-content container">
+    <form id="loginForm" class="glass-card mx-auto p-4" onsubmit="handleLogin(event)" style="max-width: 500px;">
+      <h2 class="neon-subtitle text-center">🚀 Аутентификация</h2>
+      <div class="input-group">
+        <input type="text" name="username" class="neon-input" placeholder="👤 Логин" required>
+      </div>
+      <div class="input-group">
+        <input type="password" name="password" class="neon-input" placeholder="🔒 Пароль" required>
+      </div>
+      <button type="submit" class="btn neon-btn w-100">🚀 Войти</button>
+      <p class="register-link text-center">Нет аккаунта? <a href="register.html" class="neon-link">Создать</a></p>
+    </form>
+  </main>
+  <script>
+    async function handleLogin(e) {
+      e.preventDefault();
+      const form = e.target;
+      
+      try {
+        const response = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: form.username.value,
+            password: form.password.value
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Ошибка авторизации');
+        }
+        
+        if (data.token) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          window.location.href = '/';
+        } else {
+          throw new Error('Токен не получен');
+        }
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Файлы игры — GameVerse</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gradient-bg">
+  <header>
+    <div class="header-content">
+      <h1 class="neon-text">📁 ФАЙЛЫ ИГРЫ</h1>
+      <nav>
+        <a href="edit-options.html" class="btn neon-btn">← Назад</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="file-editor-container">
+    <div class="file-tree glass-card">
+      <h2 class="neon-subtitle">Файлы проекта</h2>
+      <div id="fileList" class="file-tree-list"></div>
+    </div>
+
+    <div class="file-content glass-card">
+      <div class="file-toolbar">
+        <select id="fileSelector" class="neon-select"></select>
+        <button onclick="replaceFile()" class="btn neon-btn">🔄 Заменить файл</button>
+      </div>
+      <div class="preview-container" id="previewContainer">
+        <p class="neon-text-small">Выберите файл для просмотра</p>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentGameId = new URLSearchParams(window.location.search).get('id');
+    let selectedFilePath = null;
+
+    async function loadFiles() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('Необходима авторизация');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        const response = await fetch(`/games/${currentGameId}/files`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) throw new Error('Ошибка загрузки файлов');
+        
+        const files = await response.json();
+        const fileList = document.getElementById('fileList');
+        fileList.innerHTML = files.map(file => `
+          <div class="file-item" onclick="selectFile('${file.path}')">
+            📄 ${file.path}
+            <span class="file-meta">
+              ${(file.size / 1024).toFixed(1)} KB | 
+              ${new Date(file.modified).toLocaleDateString()}
+            </span>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Ошибка загрузки файлов:', err);
+        alert('Не удалось загрузить список файлов. Попробуйте позже.');
+      }
+    }
+
+    async function selectFile(path) {
+      selectedFilePath = path;
+      const fileItems = document.querySelectorAll('.file-item');
+      fileItems.forEach(item => item.classList.remove('selected'));
+      
+      const selectedItem = [...fileItems].find(item => 
+        item.textContent.includes(path)
+      );
+      if (selectedItem) selectedItem.classList.add('selected');
+
+      // Показываем информацию о файле
+      const previewContainer = document.getElementById('previewContainer');
+      previewContainer.innerHTML = `
+        <div class="file-info">
+          <h3>📄 ${path}</h3>
+          <button onclick="replaceFile()" class="btn neon-btn">🔄 Заменить файл</button>
+        </div>
+      `;
+    }
+
+    async function replaceFile() {
+      if (!selectedFilePath) {
+        alert('Выберите файл для замены');
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Необходима авторизация');
+        window.location.href = '/login.html';
+        return;
+      }
+
+      const version = prompt('Введите версию обновления:');
+      const description = prompt('Опишите изменения в обновлении:');
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('filepath', selectedFilePath);
+        formData.append('version', version);
+        formData.append('description', description);
+
+        try {
+          const response = await fetch(`/games/${currentGameId}/files/replace`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (!response.ok) throw new Error('Ошибка при замене файла');
+          alert('Файл успешно заменен!');
+          loadFiles();
+        } catch (err) {
+          console.error('Ошибка:', err);
+          alert('Не удалось заменить файл. Попробуйте позже.');
+        } finally {
+          document.body.removeChild(input);
+        }
+      };
+
+      input.click();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (!currentGameId) {
+        alert('ID игры не указан');
+        window.location.href = 'dashboard.html';
+        return;
+      }
+      loadFiles();
+    });
+  </script>
+</body>
+</html>

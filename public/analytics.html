@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Аналитика игры — GameVerse</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1 class="neon-text">📊 АНАЛИТИКА ИГРЫ</h1>
+      <nav class="nav-panel">
+        <a href="dashboard.html" class="btn neon-btn">
+          <span class="header-icon">←</span>Назад
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="glass-card">
+      <h2 class="neon-subtitle" id="gameTitle">📈 Статистика игры</h2>
+      <div class="chart-container">
+        <canvas id="statsChart"></canvas>
+      </div>
+      <!-- Removed daily views chart -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <h3>👀 Просмотры</h3>
+          <p id="viewsCount">0</p>
+        </div>
+        <div class="metric-card">
+          <h3>⭐ Средний рейтинг</h3>
+          <p id="avgRating">0</p>
+        </div>
+        <div class="metric-card">
+          <h3>💬 Отзывы</h3>
+          <p id="reviewsCount">0</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="reviews-section glass-card">
+      <h2 class="neon-subtitle">💬 Последние отзывы</h2>
+      <div id="reviewsList" class="reviews-list"></div>
+    </div>
+  </main>
+
+  <script>
+    // Получаем ID игры из URL
+    const gameId = new URLSearchParams(window.location.search).get('id');
+
+    if (!gameId) {
+      alert('Игра не указана');
+      window.location.href = 'dashboard.html';
+    }
+
+    function renderReviews(reviews) {
+      const container = document.getElementById('reviewsList');
+      container.innerHTML = reviews.map(review => `
+        <div class="review-card">
+          <div class="review-header">
+            <span class="review-author">👤 ${review.user}</span>
+            <span class="review-rating">⭐ ${review.rating}/5</span>
+            <span class="review-date">${new Date(review.date).toLocaleDateString()}</span>
+          </div>
+          <p class="review-text">${review.comment || 'Без комментария'}</p>
+        </div>
+      `).join('');
+    }
+
+    // Загрузка данных аналитики
+    async function loadAnalytics() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('Необходима авторизация');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        const [analyticsRes, reviewsRes] = await Promise.all([
+          fetch(`/game-analytics/${gameId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`/games/${gameId}/reviews`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
+
+        if (!analyticsRes.ok) throw new Error('Ошибка загрузки аналитики');
+        if (!reviewsRes.ok) throw new Error('Ошибка загрузки отзывов');
+
+        const analytics = await analyticsRes.json();
+        const reviews = await reviewsRes.json();
+
+        // Обновляем метрики
+        document.getElementById('viewsCount').textContent = analytics.views;
+        document.getElementById('avgRating').textContent = analytics.averageRating.toFixed(1);
+        document.getElementById('reviewsCount').textContent = analytics.ratings;
+
+        // Создаём график
+        const ctx = document.getElementById('statsChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['Просмотры', 'Средний рейтинг', 'Отзывы'],
+            datasets: [{
+              label: 'Статистика',
+              data: [
+                analytics.views,
+                analytics.averageRating,
+                analytics.ratings
+              ],
+              backgroundColor: [
+                'rgba(54, 162, 235, 0.7)',
+                'rgba(255, 206, 86, 0.7)',
+                'rgba(75, 192, 192, 0.7)'
+              ],
+              borderColor: [
+                'rgba(54, 162, 235, 1)',
+                'rgba(255, 206, 86, 1)',
+                'rgba(75, 192, 192, 1)'
+              ],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+
+        // Отображаем отзывы
+        renderReviews(reviews);
+      } catch (err) {
+        console.error('Ошибка:', err.message);
+        alert('Не удалось загрузить данные аналитики. Попробуйте позже.');
+        window.location.href = 'dashboard.html';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadAnalytics);
+  </script>
+</body>
+</html>

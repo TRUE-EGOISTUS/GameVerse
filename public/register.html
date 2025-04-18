@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Регистрация</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gradient-bg register-page">
+  <div class="content-wrapper">
+    <header class="container">
+      <div class="header-content">
+        <h1 class="neon-text">🚀 РЕГИСТРАЦИЯ</h1>
+        <nav class="auth-panel">
+          <a href="index.html" class="btn neon-btn">← Назад</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="main-content container">
+      <form class="glass-card mx-auto p-4" action="/register" method="post" style="max-width: 500px;">
+        <h2 class="neon-subtitle text-center">📝 Создание аккаунта</h2>
+        <div class="input-group">
+          <input type="text" name="username" class="neon-input" placeholder="Логин" required>
+        </div>
+        <div class="input-group">
+          <input type="password" name="password" class="neon-input" placeholder="Пароль" required>
+        </div>
+        <div class="input-group">
+          <select name="role" class="neon-select">
+            <option value="user">🎮 Игрок</option>
+            <option value="developer">👨💻 Разработчик</option>
+            <option value="admin">👑 Администратор</option>
+          </select>
+        </div>
+        <button type="submit" class="btn neon-btn w-100">✨ Создать</button>
+      </form>
+    </main>
+    <footer class="container text-center">
+      <p class="neon-text-small">© 2023 GameVerse. Все права защищены.</p>
+    </footer>
+  </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has("error")) {
+        alert("Ошибка регистрации. Возможно, логин уже занят.");
+      }
+    });
+  </script>
+</body>
+</html>
