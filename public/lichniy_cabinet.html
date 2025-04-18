@@ -32,6 +32,7 @@
           <div class="user-details">
             <p><strong>Имя пользователя:</strong> <span id="username">User123</span></p>
             <p><strong>Роль:</strong> <span id="userRole">Игрок</span></p>
+            <p><strong>Статус:</strong> <span id="userStatus">Онлайн</span></p>
             <p><strong>Последний вход:</strong> <span id="lastLogin">18.04.2025 14:30</span></p>
           </div>
         </div>
@@ -80,15 +81,17 @@
 
         const usernameEl = document.getElementById('username');
         const userRoleEl = document.getElementById('userRole');
+        const userStatusEl = document.getElementById('userStatus');
         const lastLoginEl = document.getElementById('lastLogin');
         const userAvatarEl = document.getElementById('userAvatar');
 
-        if (!usernameEl || !userRoleEl || !lastLoginEl || !userAvatarEl) {
+        if (!usernameEl || !userRoleEl || !userStatusEl || !lastLoginEl || !userAvatarEl) {
           throw new Error('Один или несколько элементов DOM не найдены');
         }
 
         usernameEl.textContent = user.username || 'Неизвестно';
         userRoleEl.textContent = user.role === 'admin' ? 'Админ' : user.role === 'developer' ? 'Разработчик' : 'Игрок';
+        userStatusEl.textContent = user.online ? 'Онлайн' : 'Оффлайн';
         lastLoginEl.textContent = user.lastSeen || 'Неизвестно';
         userAvatarEl.src = user.avatar || 'https://via.placeholder.com/150';
         
