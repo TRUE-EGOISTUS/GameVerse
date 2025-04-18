@@ -104,6 +104,7 @@ let users = loadData("users.json", [
     username: "admin",
     password: "$2b$10$7DiZlNi0I33ntPSBWwvCXuCPkMiT9vgr7hr7Nm/MhujppY0ZCBMkq", // 123456
     role: "admin",
+    favorites: []
   },
 ]);
 
@@ -201,7 +202,8 @@ app.post("/register", async (req, res) => {
       password: hashedPassword,
       role: role || 'user',
       online: true,
-      avatar: null
+      avatar: null,
+      favorites: []
     };
 
     const token = jwt.sign(
@@ -338,7 +340,8 @@ app.get("/games", async (req, res) => {
           filteredGames = filteredGames.map(game => ({
             ...game,
             canEdit: user.role === 'admin' || game.author === user.username,
-            hasRated: Array.isArray(game.ratings) && game.ratings.some(r => r.user === user.username)
+            hasRated: Array.isArray(game.ratings) && game.ratings.some(r => r.user === user.username),
+            hasFavorited: user.favorites && user.favorites.includes(game.id)
           }));
         }
       } catch (err) {
@@ -370,6 +373,75 @@ app.get("/admin/users", verifyToken, checkRole(['admin']), (req, res) => {
   }
 });
 
+// Получение списка избранных игр
+app.get("/favorites", verifyToken, (req, res) => {
+  try {
+    const user = req.user;
+    if (!user.favorites || !Array.isArray(user.favorites)) {
+      return res.json([]);
+    }
+
+    const favoriteGames = games.filter(game => user.favorites.includes(game.id));
+    res.json(favoriteGames);
+  } catch (err) {
+    console.error("Ошибка получения избранных игр:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Добавление игры в избранное
+app.post("/favorites/add/:gameId", verifyToken, (req, res) => {
+  try {
+    const gameId = req.params.gameId;
+    const game = games.find(g => g.id === gameId);
+    if (!game) {
+      return res.status(404).json({ error: "Игра не найдена" });
+    }
+
+    const user = users.find(u => u.id === req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    if (!user.favorites) {
+      user.favorites = [];
+    }
+
+    if (user.favorites.includes(gameId)) {
+      return res.status(400).json({ error: "Игра уже в избранном" });
+    }
+
+    user.favorites.push(gameId);
+    saveData("users.json", users);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка добавления в избранное:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Удаление игры из избранного
+app.delete("/favorites/remove/:gameId", verifyToken, (req, res) => {
+  try {
+    const gameId = req.params.gameId;
+    const user = users.find(u => u.id === req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    if (!user.favorites || !user.favorites.includes(gameId)) {
+      return res.status(400).json({ error: "Игра не в избранном" });
+    }
+
+    user.favorites = user.favorites.filter(id => id !== gameId);
+    saveData("users.json", users);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка удаления из избранного:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
 // Получение отдельной игры
 app.get("/games/:id", async (req, res) => {
   try {
@@ -386,6 +458,7 @@ app.get("/games/:id", async (req, res) => {
         const user = users.find(u => u.id.toString() === decoded.id.toString());
         if (user) {
           game.canEdit = user.role === 'admin' || game.author === user.username;
+          game.hasFavorited = user.favorites && user.favorites.includes(game.id);
         }
       } catch (err) {
         console.error('Ошибка проверки токена:', err);
