@@ -7,20 +7,18 @@ const multer = require("multer");
 const admZip = require("adm-zip");
 const mime = require('mime-types');
 const NodeCache = require('node-cache');
-const cookieParser = require('cookie-parser'); // Добавим cookie-parser
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const PORT = 3000;
-const JWT_SECRET = 'your-jwt-secret-key'; // В продакшене использовать безопасный ключ
+const JWT_SECRET = 'your-jwt-secret-key';
 const dataDir = path.join(__dirname, "data");
 const cache = new NodeCache({ stdTTL: 300 });
 
-// Добавляем middleware для работы с cookies
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.static("public"));
 
-// Функции для работы с данными
 const saveData = (filename, data) => {
   try {
     if (!fs.existsSync(dataDir)) {
@@ -46,7 +44,6 @@ const loadData = (filename, defaultValue = []) => {
     const rawData = fs.readFileSync(filePath, "utf-8");
     const parsedData = JSON.parse(rawData);
 
-    // Проверяем, что данные корректны
     if (!Array.isArray(parsedData) && typeof parsedData !== "object") {
       throw new Error(`Некорректный формат данных в файле ${filename}`);
     }
@@ -58,47 +55,43 @@ const loadData = (filename, defaultValue = []) => {
   }
 };
 
-// Инициализация данных с проверкой
 let users = loadData("users.json", [
   {
     id: "1",
     username: "admin",
-    password: "$2b$10$7DiZlNi0I33ntPSBWwvCXuCPkMiT9vgr7hr7Nm/MhujppY0ZCBMkq", // 123456
+    password: "$2b$10$7DiZlNi0I33ntPSBWwvCXuCPkMiT9vgr7hr7Nm/MhujppY0ZCBMkq",
     role: "admin",
+    favorites: [] // Добавляем поле для избранного
   },
 ]);
 
 let games = loadData("games.json", []);
 
-// Функция для обновления статуса всех пользователей на offline
 const setAllUsersOffline = () => {
   users = users.map(user => ({ ...user, online: false }));
   saveData("users.json", users);
 };
 
-// Функция для проверки токена и установки статуса online
 const restoreOnlineStatus = () => {
-  const tokens = loadData("tokens.json", []); // Загружаем сохраненные токены
+  const tokens = loadData("tokens.json", []);
   users = users.map(user => {
     const token = tokens.find(t => t.userId === user.id);
     if (token) {
       try {
-        jwt.verify(token.token, JWT_SECRET); // Проверяем валидность токена
-        return { ...user, online: true }; // Если токен валиден, устанавливаем online: true
+        jwt.verify(token.token, JWT_SECRET);
+        return { ...user, online: true };
       } catch {
-        return { ...user, online: false }; // Если токен недействителен, устанавливаем online: false
+        return { ...user, online: false };
       }
     }
-    return { ...user, online: false }; // Если токена нет, устанавливаем online: false
+    return { ...user, online: false };
   });
   saveData("users.json", users);
 };
 
-// Устанавливаем всех пользователей offline и восстанавливаем статус online для авторизованных
 setAllUsersOffline();
 restoreOnlineStatus();
 
-// Обновленный middleware для проверки токена
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   
@@ -108,9 +101,7 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = users.find(u => 
-      u.id.toString() === decoded.id.toString() // Универсальная проверка
-    );
+    const user = users.find(u => u.id.toString() === decoded.id.toString());
     
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });
@@ -123,7 +114,6 @@ const verifyToken = (req, res, next) => {
   }
 };
 
-// Middleware для проверки ролей с JWT
 const checkRole = (roles) => (req, res, next) => {
   if (!req.user || !roles.includes(req.user.role)) {
     return res.status(403).json({ error: 'Доступ запрещен' });
@@ -131,7 +121,6 @@ const checkRole = (roles) => (req, res, next) => {
   next();
 };
 
-// Аутентификация
 app.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -147,11 +136,9 @@ app.post("/login", async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // Устанавливаем статус online
     user.online = true;
     saveData("users.json", users);
 
-    // Сохраняем токен
     const tokens = loadData("tokens.json", []);
     tokens.push({ userId: user.id, token });
     saveData("tokens.json", tokens);
@@ -169,7 +156,6 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Обновляем маршрут регистрации с установкой online: false
 app.post("/register", async (req, res) => {
   try {
     const { username, password, role } = req.body;
@@ -188,7 +174,8 @@ app.post("/register", async (req, res) => {
       username,
       password: hashedPassword,
       role: role || 'user',
-      online: false // Устанавливаем статус offline по умолчанию
+      online: false,
+      favorites: [] // Инициализируем избранное
     };
 
     users.push(newUser);
@@ -207,25 +194,21 @@ app.post("/register", async (req, res) => {
   }
 });
 
-// Исправленный маршрут logout
 app.post("/logout", (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     
     if (token) {
-      // Находим пользователя по токену без верификации
       let tokens = loadData("tokens.json", []);
       const userToken = tokens.find(t => t.token === token);
       
       if (userToken) {
-        // Обновляем статус пользователя
         const user = users.find(u => u.id.toString() === userToken.userId.toString());
         if (user) {
           user.online = false;
           saveData("users.json", users);
         }
         
-        // Удаляем токен
         tokens = tokens.filter(t => t.token !== token);
         saveData("tokens.json", tokens);
       }
@@ -240,7 +223,6 @@ app.post("/logout", (req, res) => {
   }
 });
 
-// Получение данных пользователя
 app.get("/user-data", verifyToken, (req, res) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Пользователь не авторизован' });
@@ -248,29 +230,87 @@ app.get("/user-data", verifyToken, (req, res) => {
   res.json(req.user);
 });
 
-// Обновляем маршрут для получения игр с фильтрацией
+// Новый маршрут для получения избранных игр
+app.get("/favorites", verifyToken, (req, res) => {
+  try {
+    const userFavorites = req.user.favorites || [];
+    const favoriteGames = games.filter(game => userFavorites.includes(game.id));
+    res.json(favoriteGames);
+  } catch (err) {
+    console.error("Ошибка получения избранного:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Новый маршрут для добавления игры в избранное
+app.post("/favorites/add/:gameId", verifyToken, (req, res) => {
+  try {
+    const gameId = req.params.gameId;
+    const game = games.find(g => g.id === gameId);
+    if (!game) {
+      return res.status(404).json({ error: "Игра не найдена" });
+    }
+
+    const userIndex = users.findIndex(u => u.id === req.user.id);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    if (!users[userIndex].favorites) {
+      users[userIndex].favorites = [];
+    }
+
+    if (!users[userIndex].favorites.includes(gameId)) {
+      users[userIndex].favorites.push(gameId);
+      saveData("users.json", users);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка добавления в избранное:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Новый маршрут для удаления игры из избранного
+app.delete("/favorites/remove/:gameId", verifyToken, (req, res) => {
+  try {
+    const gameId = req.params.gameId;
+    const userIndex = users.findIndex(u => u.id === req.user.id);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    if (users[userIndex].favorites) {
+      users[userIndex].favorites = users[userIndex].favorites.filter(id => id !== gameId);
+      saveData("users.json", users);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка удаления из избранного:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
 app.get("/games", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     const { genre, sort } = req.query;
 
-    // Загружаем свежий список игр
     let gamesList = loadData("games.json", []);
     if (!Array.isArray(gamesList)) gamesList = [];
 
     let filteredGames = [...gamesList];
 
-    // Корректная фильтрация по жанру: если genre не передан (undefined) или пустая строка — не фильтруем
     if (typeof genre === "string" && genre.trim() !== "") {
       const filterGenre = genre.trim().toLowerCase();
       filteredGames = filteredGames.filter(game => {
-        // game.genre может быть undefined/null, приводим к строке
         const gameGenre = (game.genre || "").trim().toLowerCase();
         return gameGenre === filterGenre;
       });
     }
 
-    // Сортировка
     if (typeof sort === "string" && sort.trim() !== "") {
       switch (sort.trim()) {
         case 'views':
@@ -295,7 +335,6 @@ app.get("/games", async (req, res) => {
       }
     }
 
-    // Добавляем информацию для авторизованных пользователей
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
@@ -304,23 +343,22 @@ app.get("/games", async (req, res) => {
           filteredGames = filteredGames.map(game => ({
             ...game,
             canEdit: user.role === 'admin' || game.author === user.username,
-            hasRated: Array.isArray(game.ratings) && game.ratings.some(r => r.user === user.username)
+            hasRated: Array.isArray(game.ratings) && game.ratings.some(r => r.user === user.username),
+            isFavorite: user.favorites && user.favorites.includes(game.id)
           }));
         }
       } catch (err) {
-        // Не мешаем фильтрации, если токен невалиден
+        // Игнорируем ошибку токена
       }
     }
 
-    // Возвращаем всегда массив (даже если пустой)
     res.json(filteredGames);
   } catch (err) {
     console.error("Ошибка получения списка игр:", err);
-    res.json([]); // Возвращаем пустой массив вместо ошибки
+    res.json([]);
   }
 });
 
-// Добавляем защищенный маршрут для админ-панели
 app.get("/admin/users", verifyToken, checkRole(['admin']), (req, res) => {
   try {
     const usersList = users.map(user => ({
@@ -337,7 +375,6 @@ app.get("/admin/users", verifyToken, checkRole(['admin']), (req, res) => {
   }
 });
 
-// Обновляем маршрут для получения отдельной игры
 app.get("/games/:id", async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -353,6 +390,7 @@ app.get("/games/:id", async (req, res) => {
         const user = users.find(u => u.id.toString() === decoded.id.toString());
         if (user) {
           game.canEdit = user.role === 'admin' || game.author === user.username;
+          game.isFavorite = user.favorites && user.favorites.includes(game.id);
         }
       } catch (err) {
         console.error('Ошибка проверки токена:', err);
@@ -366,13 +404,11 @@ app.get("/games/:id", async (req, res) => {
   }
 });
 
-// Добавляем маршрут для получения списка файлов игры
 app.get("/games/:id/files", verifyToken, (req, res) => {
   try {
     const game = games.find(g => g.id === req.params.id);
     if (!game) return res.status(404).json({ error: "Игра не найдена" });
 
-    // Проверяем права доступа
     if (req.user.role !== 'admin' && game.author !== req.user.username) {
       return res.status(403).json({ error: "Нет прав доступа" });
     }
@@ -382,7 +418,6 @@ app.get("/games/:id/files", verifyToken, (req, res) => {
       return res.json([]);
     }
 
-    // Функция для рекурсивного чтения файлов
     const getFiles = (dir, baseDir = '') => {
       const files = fs.readdirSync(dir);
       let result = [];
@@ -448,7 +483,6 @@ app.post("/games/:id/rate", verifyToken, (req, res) => {
   }
 });
 
-// Обновленный обработчик просмотров
 app.post("/games/:id/view", (req, res) => {
   try {
     const game = games.find(g => g.id === req.params.id);
@@ -464,7 +498,6 @@ app.post("/games/:id/view", (req, res) => {
   }
 });
 
-// Добавляем маршрут для получения игр разработчика
 app.get("/developer/games", verifyToken, (req, res) => {
   try {
     const userGames = games.filter(game => 
@@ -477,24 +510,19 @@ app.get("/developer/games", verifyToken, (req, res) => {
   }
 });
 
-// Обновленный маршрут для отдачи файлов игр
 app.get(/^\/games\/([^\/]+)\/(.+)$/, (req, res) => {
   const gameId = req.params[0];
   const filePath = req.params[1];
   
-  // Абсолютный путь к папке игры и файлу
   const gameDir = path.resolve(__dirname, 'data', 'games', gameId);
   const absPath = path.resolve(gameDir, filePath);
 
-  // Проверка безопасности пути
   if (!absPath.startsWith(gameDir + path.sep)) {
     return res.status(403).send('Доступ запрещен');
   }
 
-  // Проверяем существование файла
   fs.stat(absPath, (err, stat) => {
     if (!err && stat.isFile()) {
-      // Отправляем файл с правильным Content-Type
       const mimeType = mime.lookup(absPath) || 'application/octet-stream';
       res.setHeader('Content-Type', mimeType);
       res.sendFile(absPath);
@@ -504,13 +532,11 @@ app.get(/^\/games\/([^\/]+)\/(.+)$/, (req, res) => {
   });
 });
 
-// Маршрут для получения аналитики игры
 app.get("/game-analytics/:id", verifyToken, (req, res) => {
   try {
     const game = games.find(g => g.id === req.params.id);
     if (!game) return res.status(404).json({ error: "Игра не найдена" });
 
-    // Проверяем права доступа
     if (req.user.role !== 'admin' && game.author !== req.user.username) {
       return res.status(403).json({ error: "Нет прав доступа" });
     }
@@ -532,13 +558,11 @@ app.get("/game-analytics/:id", verifyToken, (req, res) => {
   }
 });
 
-// Маршрут для получения отзывов игры
 app.get("/games/:id/reviews", verifyToken, (req, res) => {
   try {
     const game = games.find(g => g.id === req.params.id);
     if (!game) return res.status(404).json({ error: "Игра не найдена" });
 
-    // Проверяем права доступа
     if (req.user.role !== 'admin' && game.author !== req.user.username) {
       return res.status(403).json({ error: "Нет прав доступа" });
     }
@@ -551,16 +575,14 @@ app.get("/games/:id/reviews", verifyToken, (req, res) => {
   }
 });
 
-// Добавляем обработку загрузки изображений
 const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 5 * 1024 * 1024
   }
 });
 
-// Исправленный маршрут загрузки обложки
 app.post("/games/:id/cover", verifyToken, upload.single('cover'), async (req, res) => {
   try {
     const game = games.find(g => g.id === req.params.id);
@@ -568,7 +590,6 @@ app.post("/games/:id/cover", verifyToken, upload.single('cover'), async (req, re
       return res.status(404).json({ error: "Игра не найдена" });
     }
 
-    // Проверка прав доступа
     if (req.user.role !== 'admin' && game.author !== req.user.username) {
       return res.status(403).json({ error: "Нет прав доступа" });
     }
@@ -577,15 +598,11 @@ app.post("/games/:id/cover", verifyToken, upload.single('cover'), async (req, re
       return res.status(400).json({ error: "Файл не загружен" });
     }
 
-    // Сохраняем обложку в base64
     const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     
-    // Обновляем игру
     game.cover = base64Image;
     
-    // Сохраняем изменения
     if (saveData("games.json", games)) {
-      // Сбрасываем кеш
       cache.del("games");
       res.json({ 
         success: true, 
@@ -600,7 +617,6 @@ app.post("/games/:id/cover", verifyToken, upload.single('cover'), async (req, re
   }
 });
 
-// Добавление новой игры с поддержкой обложки
 app.post("/games", verifyToken, (req, res) => {
   try {
     const { title, description, genre, author, cover } = req.body;
@@ -615,7 +631,7 @@ app.post("/games", verifyToken, (req, res) => {
       description,
       genre,
       author,
-      cover: cover || "", // base64 строка или пусто
+      cover: cover || "",
       views: 0,
       ratings: []
     };
@@ -631,7 +647,6 @@ app.post("/games", verifyToken, (req, res) => {
   }
 });
 
-// Добавим маршрут для редактирования игры
 app.put("/games/:id", verifyToken, upload.single('cover'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -641,28 +656,24 @@ app.put("/games/:id", verifyToken, upload.single('cover'), async (req, res) => {
       return res.status(404).json({ error: "Игра не найдена" });
     }
 
-    // Проверяем права доступа
     if (req.user.role !== 'admin' && games[gameIndex].author !== req.user.username) {
       return res.status(403).json({ error: "Нет прав доступа" });
     }
 
-    // Обновляем данные игры
     const updatedGame = {
       ...games[gameIndex],
       ...req.body,
-      id // Сохраняем исходный ID
+      id
     };
 
-    // Если есть новая обложка, обновляем её
     if (req.file) {
       updatedGame.cover = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     }
 
-    // Сохраняем обновленную игру
     games[gameIndex] = updatedGame;
 
     if (saveData("games.json", games)) {
-      cache.del("games"); // Очищаем кеш
+      cache.del("games");
       res.json({ 
         success: true, 
         game: updatedGame 
@@ -676,13 +687,11 @@ app.put("/games/:id", verifyToken, upload.single('cover'), async (req, res) => {
   }
 });
 
-// Middleware для обработки ошибок
 app.use((err, req, res, next) => {
   console.error("Ошибка сервера:", err.message);
   res.status(500).json({ error: "Произошла ошибка на сервере. Попробуйте позже." });
 });
 
-// Обработка маршрутов, которые не найдены
 app.use((req, res) => {
   res.status(404).json({ error: "Маршрут не найден." });
 });
