@@ -61,7 +61,7 @@ let users = loadData("users.json", [
     username: "admin",
     password: "$2b$10$7DiZlNi0I33ntPSBWwvCXuCPkMiT9vgr7hr7Nm/MhujppY0ZCBMkq",
     role: "admin",
-    favorites: [] // Добавляем поле для избранного
+    favorites: []
   },
 ]);
 
@@ -175,7 +175,7 @@ app.post("/register", async (req, res) => {
       password: hashedPassword,
       role: role || 'user',
       online: false,
-      favorites: [] // Инициализируем избранное
+      favorites: []
     };
 
     users.push(newUser);
@@ -230,7 +230,76 @@ app.get("/user-data", verifyToken, (req, res) => {
   res.json(req.user);
 });
 
-// Новый маршрут для получения избранных игр
+// Новый маршрут для смены ника
+app.put("/user/username", verifyToken, async (req, res) => {
+  try {
+    const { newUsername } = req.body;
+
+    if (!newUsername || typeof newUsername !== 'string' || newUsername.trim() === '') {
+      return res.status(400).json({ error: 'Новый ник обязателен и должен быть непустой строкой' });
+    }
+
+    const trimmedUsername = newUsername.trim();
+    if (users.some(u => u.username === trimmedUsername && u.id !== req.user.id)) {
+      return res.status(400).json({ error: 'Этот ник уже занят' });
+    }
+
+    const userIndex = users.findIndex(u => u.id === req.user.id);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    users[userIndex].username = trimmedUsername;
+    saveData("users.json", users);
+
+    // Обновляем токен с новым именем
+    const newToken = jwt.sign(
+      { id: req.user.id, username: trimmedUsername, role: req.user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ success: true, token: newToken, username: trimmedUsername });
+  } catch (err) {
+    console.error("Ошибка смены ника:", err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Новый маршрут для смены пароля
+app.put("/user/password", verifyToken, async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ error: 'Необходимы старый и новый пароли' });
+    }
+
+    if (newPassword.trim() === '') {
+      return res.status(400).json({ error: 'Новый пароль не может быть пустым' });
+    }
+
+    const userIndex = users.findIndex(u => u.id === req.user.id);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'Пользователь не найден' });
+    }
+
+    const user = users[userIndex];
+    if (!(await bcrypt.compare(oldPassword, user.password))) {
+      return res.status(401).json({ error: 'Неверный старый пароль' });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    users[userIndex].password = hashedPassword;
+    saveData("users.json", users);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка смены пароля:", err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 app.get("/favorites", verifyToken, (req, res) => {
   try {
     const userFavorites = req.user.favorites || [];
@@ -242,7 +311,6 @@ app.get("/favorites", verifyToken, (req, res) => {
   }
 });
 
-// Новый маршрут для добавления игры в избранное
 app.post("/favorites/add/:gameId", verifyToken, (req, res) => {
   try {
     const gameId = req.params.gameId;
@@ -272,7 +340,6 @@ app.post("/favorites/add/:gameId", verifyToken, (req, res) => {
   }
 });
 
-// Новый маршрут для удаления игры из избранного
 app.delete("/favorites/remove/:gameId", verifyToken, (req, res) => {
   try {
     const gameId = req.params.gameId;
