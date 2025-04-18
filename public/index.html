@@ -31,7 +31,7 @@
       <div class="genre-panel glass-card">
         <h2 class="genre-title">Жанры</h2>
         <div class="genre-buttons">
-          <button class="genre-button active" data-genre="">Все жанры</button>
+          <button class="genre-button" data-genre="">Все жанры</button>
           <button class="genre-button" data-genre="Аркада">Аркада</button>
           <button class="genre-button" data-genre="Стратегия">Стратегия</button>
           <button class="genre-button" data-genre="Головоломка">Головоломка</button>
@@ -80,7 +80,7 @@
 
   <div id="ratingModal" class="modal">
     <div class="modal-content glass-card">
-      <span class="close-btn" onclick="closeRatingModal()">×</span>
+      <span class="close-btn" onclick="closeRatingModal()">&times;</span>
       <h2 class="neon-subtitle">Оценить игру</h2>
       <form id="ratingForm" onsubmit="return submitRating(event)">
         <input type="hidden" id="selectedGameId">
@@ -105,25 +105,30 @@
   <script>
     async function checkNotifications() {
       try {
-        const response = await fetch('/user-data');
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('/user-data', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) return;
+
         const user = await response.json();
         
-        if (user) {
-          const notificationsRes = await fetch('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: user.username })
-          });
+        const notificationsRes = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user.username })
+        });
+        
+        const data = await notificationsRes.json();
+        
+        if (data.notifications && data.notifications.length > 0) {
+          const messages = data.notifications.map(n => 
+            `Игра "${n.gameName}" была удалена.\nПричина: ${n.reason}\nДата: ${new Date(n.deletedAt).toLocaleString()}`
+          ).join('\n\n');
           
-          const data = await notificationsRes.json();
-          
-          if (data.notifications && data.notifications.length > 0) {
-            const messages = data.notifications.map(n => 
-              `Игра "${n.gameName}" была удалена.\nПричина: ${n.reason}\nДата: ${new Date(n.deletedAt).toLocaleString()}`
-            ).join('\n\n');
-            
-            alert(messages);
-          }
+          alert(messages);
         }
       } catch (err) {
         console.error('Ошибка проверки уведомлений:', err);
@@ -133,16 +138,13 @@
     let currentUser = null;
     let selectedGameId = null;
     let currentGames = [];
-    let isLoading = true;
 
     function showLoading() {
       document.getElementById('preloader').style.display = 'flex';
-      isLoading = true;
     }
 
     function hideLoading() {
       document.getElementById('preloader').style.display = 'none';
-      isLoading = false;
     }
 
     async function loadData() {
@@ -175,7 +177,6 @@
         localStorage.removeItem('token');
         currentUser = null;
         updateAuthPanel(null);
-        renderGames([], null);
       } finally {
         hideLoading();
       }
@@ -220,9 +221,13 @@
       if (user && token) {
         authPanel.innerHTML = `
           <div class="user-info">
-            <img src="${user.avatar || 'https://via.placeholder.com/40'}" alt="Аватар" class="user-avatar">
             <span>👤 ${user.username}</span>
-            <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
+            ${user.role === 'admin' 
+              ? `<span class="admin-badge">👑 Администратор</span>
+                 <a href="admin-panel.html" class="btn neon-btn">Админ-панель</a>`
+              : user.role === 'developer'
+              ? '<a href="dashboard.html" class="btn neon-btn">Кабинет</a>'
+              : ''}
             <button onclick="logout()" class="btn neon-btn">Выйти</button>
           </div>
         `;
@@ -240,23 +245,53 @@
       }
     }
 
-    async function getGameIndexPath(game) {
-      if (game.path && typeof game.path === "string") {
-        return `/games/${game.id}/${game.path.split('/').slice(2).join('/')}`;
+    async function toggleFavorite(gameId) {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('Пожалуйста, войдите в систему, чтобы добавить игру в избранное');
+          window.location.href = '/login.html';
+          return;
+        }
+
+        const game = currentGames.find(g => g.id === gameId);
+        if (!game) {
+          alert('Игра не найдена');
+          return;
+        }
+
+        const isFavorited = game.hasFavorited;
+        const url = isFavorited ? `/favorites/remove/${gameId}` : `/favorites/add/${gameId}`;
+        const method = isFavorited ? 'DELETE' : 'POST';
+
+        const response = await fetch(url, {
+          method,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Ошибка изменения избранного');
+        }
+
+        currentGames = currentGames.map(g => 
+          g.id === gameId ? { ...g, hasFavorited: !isFavorited } : g
+        );
+        renderGames(currentGames, currentUser);
+        alert(isFavorited ? 'Игра удалена из избранного' : 'Игра добавлена в избранное');
+      } catch (err) {
+        console.error("Ошибка в toggleFavorite:", err);
+        alert(err.message || "Не удалось изменить избранное");
       }
-      
-      return `/games/${game.id}/simple_game/index.html`;
     }
 
     function renderGames(games, user) {
       const gamesContainer = document.querySelector(".games-grid");
       const template = document.getElementById("game-card-template");
       gamesContainer.innerHTML = "";
-
-      if (!games || games.length === 0) {
-        gamesContainer.innerHTML = '<p class="no-games">Игры не найдены</p>';
-        return;
-      }
 
       games.forEach((game) => {
         const clone = template.content.cloneNode(true);
@@ -293,12 +328,12 @@
         });
 
         const favoriteButton = clone.querySelector(".action-button.favorite-action");
+        favoriteButton.title = game.hasFavorited ? "Убрать из избранного" : "Добавить в избранное";
+        favoriteButton.querySelector("span").textContent = game.hasFavorited ? "💔" : "❤️";
         favoriteButton.addEventListener("click", (e) => {
           e.stopPropagation();
           toggleFavorite(game.id);
         });
-        favoriteButton.querySelector("span").textContent = game.isFavorite ? "💔" : "❤️";
-        favoriteButton.title = game.isFavorite ? "Убрать из избранного" : "Добавить в избранное";
 
         const card = clone.querySelector(".game-card");
         card.style.cursor = "pointer";
@@ -317,49 +352,6 @@
 
         gamesContainer.appendChild(clone);
       });
-    }
-
-    async function toggleFavorite(gameId) {
-      if (!currentUser) {
-        alert('Пожалуйста, войдите в систему, чтобы добавить игру в избранное');
-        return;
-      }
-
-      try {
-        console.log(`Тоггл избранного для игры ${gameId}`);
-        const token = localStorage.getItem('token');
-        const game = currentGames.find(g => g.id === gameId);
-        if (!game) {
-          console.error(`Игра с ID ${gameId} не найдена в currentGames`);
-          alert('Игра не найдена');
-          return;
-        }
-
-        const isFavorite = game.isFavorite || false;
-        const endpoint = isFavorite ? `/favorites/remove/${gameId}` : `/favorites/add/${gameId}`;
-        const method = isFavorite ? 'DELETE' : 'POST';
-
-        const response = await fetch(endpoint, {
-          method: method,
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          console.error('Ошибка сервера:', error);
-          throw new Error(error.error || 'Ошибка обновления избранного');
-        }
-
-        game.isFavorite = !isFavorite;
-        console.log(`Состояние избранного для игры ${gameId} обновлено: ${game.isFavorite}`);
-        renderGames(currentGames, currentUser);
-      } catch (err) {
-        console.error("Ошибка в toggleFavorite:", err);
-        alert(err.message || "Не удалось обновить избранное");
-      }
     }
 
     async function deleteGame(gameId) {
@@ -387,58 +379,64 @@
       }
     }
 
-    function getAverageRating(ratings) {
-      if (!ratings || ratings.length === 0) return '0.0 ★';
-      const avg = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
-      return avg.toFixed(1) + ' ★';
+    function getAverageRatingValue(ratings) {
+      if (!ratings || ratings.length === 0) return 0;
+      return ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
     }
 
     function applyFilters() {
-      showLoading();
-      const token = localStorage.getItem('token');
-      const activeGenreButton = document.querySelector('.genre-button.active');
-      const activeFilterButton = document.querySelector('.filter-button.active:not(.clear-filters)');
-      
-      const params = new URLSearchParams();
-      
-      if (activeGenreButton && activeGenreButton.dataset.genre) {
-        params.append('genre', activeGenreButton.dataset.genre);
-      }
-      
-      if (activeFilterButton && activeFilterButton.dataset.sort) {
-        params.append('sort', activeFilterButton.dataset.sort);
-      }
-
-      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-
-      fetch(`/games?${params.toString()}`, { 
-        method: 'GET',
-        headers: headers
-      })
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`Ошибка сервера: ${response.status}`);
+      try {
+        showLoading();
+        const token = localStorage.getItem('token');
+        const activeGenreButton = document.querySelector('.genre-button.active');
+        const activeFilterButton = document.querySelector('.filter-button.active:not(.clear-filters)');
+        
+        const params = new URLSearchParams();
+        
+        if (activeGenreButton && activeGenreButton.dataset.genre) {
+          params.append('genre', activeGenreButton.dataset.genre);
         }
-        return response.json();
-      })
-      .then(games => {
-        if (!Array.isArray(games)) {
-          console.warn('Получен неверный формат данных:', games);
-          currentGames = [];
-        } else {
+        
+        if (activeFilterButton && activeFilterButton.dataset.sort) {
+          params.append('sort', activeFilterButton.dataset.sort);
+        }
+
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        fetch(`/games?${params.toString()}`, { 
+          method: 'GET',
+          headers: headers
+        })
+        .then(response => {
+          if (!response.ok) throw new Error('Network response was not ok');
+          return response.json();
+        })
+        .then(games => {
+          if (!Array.isArray(games)) {
+            console.warn('Получен неверный формат данных:', games);
+            games = [];
+          }
           currentGames = games;
-        }
-        renderGames(currentGames, currentUser);
-      })
-      .catch(err => {
-        console.error("Ошибка применения фильтров:", err);
-        alert('Не удалось загрузить игры. Попробуйте позже.');
+          renderGames(games, currentUser);
+        })
+        .catch(err => {
+          console.error("Ошибка применения фильтров:", err);
+          currentGames = [];
+          renderGames([], currentUser);
+        })
+        .finally(() => {
+          hideLoading();
+        });
+
+      } catch (err) {
+        console.error("Ошибка:", err);
+        hideLoading();
         currentGames = [];
         renderGames([], currentUser);
-      })
-      .finally(() => {
-        hideLoading();
-      });
+      }
     }
 
     function initFilters() {
@@ -455,27 +453,24 @@
 
       filterButtons.forEach(button => {
         button.addEventListener('click', () => {
-          if (button.classList.contains('clear-filters')) {
-            genreButtons.forEach(btn => btn.classList.remove('active'));
+          const isClearButton = button.classList.contains('clear-filters');
+          
+          if (isClearButton) {
             filterButtons.forEach(btn => btn.classList.remove('active'));
-            document.querySelector('.genre-button[data-genre=""]').classList.add('active');
-            applyFilters();
-          } else {
-            filterButtons.forEach(btn => {
-              if (!btn.classList.contains('clear-filters')) {
-                btn.classList.remove('active');
-              }
-            });
-            button.classList.add('active');
-            applyFilters();
+            genreButtons.forEach(btn => btn.classList.remove('active'));
+            loadData();
+            return;
           }
+
+          filterButtons.forEach(btn => {
+            if (!btn.classList.contains('clear-filters')) {
+              btn.classList.remove('active');
+            }
+          });
+          button.classList.add('active');
+          applyFilters();
         });
       });
-    }
-
-    function getAverageRatingValue(ratings) {
-      if (!ratings || ratings.length === 0) return 0;
-      return ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
     }
 
     function initAuthDropdown() {
@@ -501,22 +496,6 @@
           });
         });
       }
-    }
-
-    function launchGame(path, gameId) {
-      const token = localStorage.getItem('token');
-      
-      fetch(`/games/${gameId}/view`, {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-      })
-      .then(() => {
-        const simplePath = path.split('/games/')[1].split('/');
-        simplePath.shift();
-        const finalPath = `/games/${gameId}/content/${simplePath.join('/')}`;
-        window.open(finalPath, '_blank');
-      })
-      .catch(err => console.error('Ошибка:', err));
     }
 
     function showRatingModal(gameId) {
@@ -545,7 +524,8 @@
         const response = await fetch(`/games/${selectedGameId}/rate`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
           },
           body: JSON.stringify({ rating, comment })
         });
@@ -563,37 +543,10 @@
       }
     }
 
-    function editGame(gameId) {
-      window.location.href = `edit-game.html?id=${gameId}`;
-    }
-
-    function updateNavigation() {
-      try {
-        fetch("/current-user")
-          .then(res => res.json())
-          .then(user => {
-            const authPanel = document.getElementById("authPanel");
-            if (user) {
-              authPanel.innerHTML = `
-                <div class="user-info">
-                  <img src="${user.avatar || 'https://via.placeholder.com/40'}" alt="Аватар" class="user-avatar">
-                  <span>👤 ${user.username}</span>
-                  <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
-                  <button onclick="logout()" class="btn neon-btn">Выйти</button>
-                </div>
-              `;
-            }
-          });
-      } catch (err) {
-        console.error("Ошибка обновления навигации:", err);
-      }
-    }
-
     document.addEventListener("DOMContentLoaded", () => {
       loadData();
       checkNotifications();
       initAuthDropdown();
-      updateNavigation();
       initFilters();
     });
 
@@ -617,56 +570,9 @@
         color: var(--neon-blue);
       }
 
-      .no-games {
-        text-align: center;
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 1.2rem;
-        margin: 2rem 0;
-      }
-
       .favorite-action {
-        position: absolute;
         top: 10px;
         left: 50px;
-        background: rgba(0, 0, 0, 0.7);
-        border: none;
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #ff416c;
-      }
-
-      .favorite-action:hover {
-        background: rgba(255, 65, 108, 0.9);
-        color: white;
-      }
-
-      .user-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        object-fit: cover;
-        border: 2px solid rgba(255, 65, 108, 0.5);
-        box-shadow: 0 0 10px rgba(255, 65, 108, 0.3);
-        transition: transform 0.3s ease;
-      }
-
-      .user-avatar:hover {
-        transform: scale(1.1);
-      }
-
-      .user-info {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        flex-wrap: wrap;
-        padding: 0.5rem 1rem;
-        background: rgba(255,255,255,0.05);
-        border-radius: 30px;
       }
     `;
 
@@ -700,17 +606,5 @@
 
     document.head.insertAdjacentHTML('beforeend', `<style>${errorStyles}</style>`);
   </script>
-
-  <style>
-    .admin-panel {
-      display: none;
-    }
-
-    .genre-button.active, .filter-button.active {
-      background: linear-gradient(135deg, #ff416c, #ff4b2b);
-      color: white;
-      transform: scale(1.05);
-    }
-  </style>
 </body>
 </html>
