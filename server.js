@@ -7,20 +7,12 @@ const multer = require("multer");
 const mime = require('mime-types');
 const NodeCache = require('node-cache');
 const cookieParser = require('cookie-parser');
-const redis = require('redis');
 
 const app = express();
 const PORT = 3000;
 const JWT_SECRET = 'your-jwt-secret-key';
 const dataDir = path.join(__dirname, "data");
 const cache = new NodeCache({ stdTTL: 300 });
-
-// Настройка Redis
-const client = redis.createClient({
-  url: 'redis://localhost:6379'
-});
-client.on('error', (err) => console.log('Redis Client Error', err));
-client.connect();
 
 // Middleware
 app.use(cookieParser());
@@ -127,7 +119,7 @@ const setAllUsersOffline = () => {
 setAllUsersOffline();
 
 // Middleware для проверки токена
-const verifyToken = async (req, res, next) => {
+const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
   
   if (!token) {
@@ -136,12 +128,6 @@ const verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const storedToken = await client.get(`token:${decoded.id}`);
-    
-    if (storedToken !== token) {
-      return res.status(401).json({ error: 'Недействительный токен' });
-    }
-
     const user = users.find(u => u.id.toString() === decoded.id.toString());
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });
@@ -177,8 +163,6 @@ app.post("/login", async (req, res) => {
       JWT_SECRET,
       { expiresIn: '24h' }
     );
-
-    await client.set(`token:${user.id}`, token, { EX: 24 * 3600 });
 
     user.online = true;
     saveData("users.json", users);
@@ -226,8 +210,6 @@ app.post("/register", async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    await client.set(`token:${newUser.id}`, token, { EX: 24 * 3600 });
-
     users.push(newUser);
     saveData("users.json", users);
 
@@ -246,7 +228,6 @@ app.post("/logout", async (req, res) => {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
         const userId = decoded.id;
-        await client.del(`token:${userId}`);
         
         const user = users.find(u => u.id.toString() === userId.toString());
         if (user) {
