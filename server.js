@@ -4,7 +4,6 @@ const jwt = require("jsonwebtoken");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
-const admZip = require("adm-zip");
 const mime = require('mime-types');
 const NodeCache = require('node-cache');
 const cookieParser = require('cookie-parser');
@@ -27,6 +26,30 @@ client.connect();
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.static("public"));
+
+// Настройка Multer для загрузки нескольких файлов
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const gameDir = path.join(dataDir, 'games', req.body.gameId || Date.now().toString());
+      if (!fs.existsSync(gameDir)) {
+        fs.mkdirSync(gameDir, { recursive: true });
+      }
+      cb(null, gameDir);
+    },
+    filename: (req, file, cb) => {
+      cb(null, file.originalname);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['text/html', 'text/css', 'application/javascript', 'image/png', 'image/jpeg'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Недопустимый тип файла'));
+    }
+  }
+});
 
 // Функции для работы с данными
 const saveData = (filename, data) => {
@@ -54,7 +77,6 @@ const loadData = (filename, defaultValue = []) => {
     const rawData = fs.readFileSync(filePath, "utf-8");
     const parsedData = JSON.parse(rawData);
 
-    // Проверяем, что данные корректны
     if (!Array.isArray(parsedData) && typeof parsedData !== "object") {
       throw new Error(`Некорректный формат данных в файле ${filename}`);
     }
@@ -139,10 +161,8 @@ app.post("/login", async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // Сохраняем токен в Redis
-    await client.set(`token:${user.id}`, token, { EX: 24 * 3600 }); // TTL 24 часа
+    await client.set(`token:${user.id}`, token, { EX: 24 * 3600 });
 
-    // Устанавливаем статус online
     user.online = true;
     saveData("users.json", users);
 
@@ -178,7 +198,7 @@ app.post("/register", async (req, res) => {
       username,
       password: hashedPassword,
       role: role || 'user',
-      online: true // Устанавливаем online при регистрации
+      online: true
     };
 
     const token = jwt.sign(
@@ -187,7 +207,6 @@ app.post("/register", async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // Сохраняем токен в Redis
     await client.set(`token:${newUser.id}`, token, { EX: 24 * 3600 });
 
     users.push(newUser);
@@ -208,10 +227,8 @@ app.post("/logout", async (req, res) => {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
         const userId = decoded.id;
-        // Удаляем токен из Redis
         await client.del(`token:${userId}`);
         
-        // Обновляем статус пользователя
         const user = users.find(u => u.id.toString() === userId.toString());
         if (user) {
           user.online = false;
@@ -245,13 +262,11 @@ app.get("/games", async (req, res) => {
     const token = req.headers.authorization?.split(' ')[1];
     const { genre, sort } = req.query;
 
-    // Загружаем свежий список игр
     let gamesList = loadData("games.json", []);
     if (!Array.isArray(gamesList)) gamesList = [];
 
     let filteredGames = [...gamesList];
 
-    // Корректная фильтрация по жанру
     if (typeof genre === "string" && genre.trim() !== "") {
       const filterGenre = genre.trim().toLowerCase();
       filteredGames = filteredGames.filter(game => {
@@ -260,7 +275,6 @@ app.get("/games", async (req, res) => {
       });
     }
 
-    // Сортировка
     if (typeof sort === "string" && sort.trim() !== "") {
       switch (sort.trim()) {
         case 'views':
@@ -285,7 +299,6 @@ app.get("/games", async (req, res) => {
       }
     }
 
-    // Добавляем информацию для авторизованных пользователей
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
@@ -298,11 +311,9 @@ app.get("/games", async (req, res) => {
           }));
         }
       } catch (err) {
-        // Не мешаем фильтрации, если токен невалиден
       }
     }
 
-    // Возвращаем всегда массив
     res.json(filteredGames);
   } catch (err) {
     console.error("Ошибка получения списка игр:", err);
@@ -362,7 +373,6 @@ app.get("/games/:id/files", verifyToken, (req, res) => {
     const game = games.find(g => g.id === req.params.id);
     if (!game) return res.status(404).json({ error: "Игра не найдена" });
 
-    // Проверяем права доступа
     if (req.user.role !== 'admin' && game.author !== req.user.username) {
       return res.status(403).json({ error: "Нет прав доступа" });
     }
@@ -372,7 +382,6 @@ app.get("/games/:id/files", verifyToken, (req, res) => {
       return res.json([]);
     }
 
-    // Функция для рекурсивного чтения файлов
     const getFiles = (dir, baseDir = '') => {
       const files = fs.readdirSync(dir);
       let result = [];
@@ -469,17 +478,17 @@ app.get("/developer/games", verifyToken, (req, res) => {
 });
 
 // Отдача файлов игр
-app.get(/^\/games\/([^\/]+)\/(.+)$/, (req, res) => {
-  const gameId = req.params[0];
-  const filePath = req.params[1];
+app.get('/games/:gameId/*', (req, res) => {
+  const gameId = req.params.gameId;
+  const filePath = req.params[0];
   
-  const gameDir = path.resolve(__dirname, 'data', 'games', gameId);
-  const absPath = path.resolve(gameDir, filePath);
-
-  if (!absPath.startsWith(gameDir + path.sep)) {
+  const gameDir = path.join(dataDir, 'games', gameId);
+  const absPath = path.join(gameDir, filePath);
+  
+  if (!absPath.startsWith(gameDir)) {
     return res.status(403).send('Доступ запрещен');
   }
-
+  
   fs.stat(absPath, (err, stat) => {
     if (!err && stat.isFile()) {
       const mimeType = mime.lookup(absPath) || 'application/octet-stream';
@@ -537,15 +546,15 @@ app.get("/games/:id/reviews", verifyToken, (req, res) => {
 });
 
 // Загрузка обложки
-const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage: storage,
+const coverStorage = multer.memoryStorage();
+const coverUpload = multer({ 
+  storage: coverStorage,
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   }
 });
 
-app.post("/games/:id/cover", verifyToken, upload.single('cover'), async (req, res) => {
+app.post("/games/:id/cover", verifyToken, coverUpload.single('cover'), async (req, res) => {
   try {
     const game = games.find(g => g.id === req.params.id);
     if (!game) {
@@ -578,39 +587,36 @@ app.post("/games/:id/cover", verifyToken, upload.single('cover'), async (req, re
   }
 });
 
-// Добавление новой игры
-app.post("/games", verifyToken, (req, res) => {
+// Загрузка файлов игры
+app.post('/upload-game-files', verifyToken, upload.array('gameFiles', 50), (req, res) => {
   try {
-    const { title, description, genre, author, cover } = req.body;
-
-    if (!title || !description || !genre || !author) {
-      return res.status(400).json({ error: "Все поля обязательны" });
-    }
-
+    const gameId = req.body.gameId || Date.now().toString();
+    const gameDir = path.join(dataDir, 'games', gameId);
+    
+    const files = req.files.map(file => file.path);
+    
     const newGame = {
-      id: Date.now().toString(),
-      title,
-      description,
-      genre,
-      author,
-      cover: cover || "",
+      id: gameId,
+      title: req.body.title,
+      description: req.body.description,
+      genre: req.body.genre,
+      author: req.user.username,
+      files: files,
       views: 0,
       ratings: []
     };
-
+    
     games.push(newGame);
-
-    saveData("games.json", games);
-    cache.del("games");
+    saveData('games.json', games);
     res.json({ success: true, game: newGame });
   } catch (err) {
-    console.error("Ошибка добавления игры:", err);
-    res.status(500).json({ error: "Ошибка сервера" });
+    console.error('Ошибка загрузки файлов:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
 // Редактирование игры
-app.put("/games/:id", verifyToken, upload.single('cover'), async (req, res) => {
+app.put("/games/:id", verifyToken, coverUpload.single('cover'), async (req, res) => {
   try {
     const { id } = req.params;
     const gameIndex = games.findIndex(g => g.id === id);
