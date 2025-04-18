@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Личный кабинет - Gaming Hub</title>
+  <link rel="stylesheet" href="styles.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="gradient-bg">
+  <header>
+    <div class="header-content">
+      <h1 class="neon-text">🎮 ЛИЧНЫЙ КАБИНЕТ</h1>
+      <nav class="auth-panel">
+        <a href="index.html" class="btn neon-btn">Главная</a>
+        <button onclick="logout()" class="btn neon-btn">Выйти</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="dashboard-container">
+      <div class="profile-section glass-card">
+        <h2 class="neon-subtitle">👤 Профиль пользователя</h2>
+        <div class="profile-info">
+          <div class="avatar-container">
+            <img id="userAvatar" src="https://via.placeholder.com/150" alt="Аватар пользователя" class="avatar">
+            <label for="avatarUpload" class="file-upload-label">Сменить аватар</label>
+            <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+          </div>
+          <div class="user-details">
+            <p><strong>Имя пользователя:</strong> <span id="username">User123</span></p>
+            <p><strong>Роль:</strong> <span id="userRole">Игрок</span></p>
+            <p><strong>Статус:</strong> <span id="userStatus">Онлайн</span></p>
+            <p><strong>Последний вход:</strong> <span id="lastLogin">18.04.2025 14:30</span></p>
+          </div>
+        </div>
+        <button class="btn neon-btn" onclick="alert('Функция смены пароля пока не реализована')">Сменить пароль</button>
+      </div>
+
+      <div class="actions-section glass-card">
+        <h2 class="neon-subtitle">⚙️ Действия</h2>
+        <div class="action-buttons">
+          <button id="myGamesBtn" class="btn neon-btn" onclick="alert('Переход к моим играм пока не реализован')">Мои игры</button>
+          <button class="btn neon-btn" onclick="alert('Переход к избранному пока не реализован')">Избранное</button>
+          <button class="btn neon-btn" onclick="alert('Переход к истории активности пока не реализован')">История активности</button>
+          <button class="btn neon-btn" onclick="alert('Переход к достижениям пока не реализован')">Достижения и статистика</button>
+          <button class="btn neon-btn" onclick="alert('Переход к уведомлениям пока не реализован')">Уведомления</button>
+          <button class="btn neon-btn" onclick="alert('Переход к настройкам пока не реализован')">Настройки</button>
+          <button class="btn neon-btn" onclick="alert('Переход к безопасности пока не реализован')">Безопасность</button>
+          <button id="adminPanelBtn" class="btn neon-btn admin-btn" onclick="alert('Переход к админ-панели пока не реализован')" style="display: none;">Админ-панель</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Загрузка данных пользователя
+    async function loadUserData() {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          window.location.href = '/login.html';
+          return;
+        }
+
+        const response = await fetch('/user-data', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Ошибка загрузки данных пользователя');
+        }
+
+        const user = await response.json();
+        document.getElementById('username').textContent = user.username;
+        document.getElementById('userRole').textContent = user.role === 'admin' ? 'Админ' : user.role === 'developer' ? 'Разработчик' : 'Игрок';
+        document.getElementById('userStatus').textContent = user.online ? 'Онлайн' : 'Оффлайн';
+        document.getElementById('lastLogin').textContent = user.lastSeen || 'Неизвестно';
+        
+        // Показать кнопку админ-панели только для админов
+        if (user.role === 'admin') {
+          document.getElementById('adminPanelBtn').style.display = 'block';
+        }
+
+        // Показать кнопку "Мои игры" только для разработчиков и админов
+        if (user.role === 'developer' || user.role === 'admin') {
+          document.getElementById('myGamesBtn').style.display = 'block';
+        } else {
+          document.getElementById('myGamesBtn').style.display = 'none';
+        }
+      } catch (err) {
+        console.error('Ошибка:', err);
+        alert('Не удалось загрузить данные пользователя. Попробуйте позже.');
+      }
+    }
+
+    // Выход из аккаунта
+    async function logout() {
+      try {
+        const response = await fetch('/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        if (!response.ok) throw new Error('Ошибка выхода');
+        localStorage.removeItem('token');
+        window.location.href = 'index.html';
+      } catch (err) {
+        console.error('Ошибка выхода:', err);
+        alert(err.message);
+      }
+    }
+
+    // Загрузка данных при загрузке страницы
+    document.addEventListener('DOMContentLoaded', () => {
+      loadUserData();
+    });
+
+    // Предпросмотр аватара
+    document.getElementById('avatarUpload').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('userAvatar').src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  </script>
+
+  <style>
+    .gradient-bg {
+      background: var(--dark-bg);
+    }
+
+    .neon-subtitle {
+      font-size: 1.8rem;
+      color: #ff416c;
+      text-shadow: 0 0 10px rgba(255, 65, 108, 0.8);
+      margin-bottom: 1.5rem;
+    }
+
+    .profile-section {
+      width: 100%;
+      max-width: 800px;
+      padding: 2rem;
+    }
+
+    .profile-info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .avatar-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .avatar {
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255, 65, 108, 0.5);
+      box-shadow: 0 0 15px rgba(255, 65, 108, 0.3);
+    }
+
+    .file-upload-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.6rem 1.2rem;
+      background: linear-gradient(135deg, #ff416c, #ff4b2b);
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.3s ease-in-out;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .file-upload-label:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(255, 65, 108, 0.4);
+    }
+
+    .user-details {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      font-size: 1.1rem;
+    }
+
+    .user-details p {
+      margin: 0;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .user-details strong {
+      color: #ff416c;
+      margin-right: 0.5rem;
+    }
+
+    .actions-section {
+      width: 100%;
+      max-width: 800px;
+      padding: 2rem;
+    }
+
+    .action-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .action-buttons .btn {
+      width: 100%;
+      padding: 1rem;
+      font-size: 1rem;
+      text-align: center;
+    }
+
+    .admin-btn {
+      background: linear-gradient(135deg, #9c27b0, #ff416c);
+    }
+
+    .admin-btn:hover {
+      box-shadow: 0 5px 15px rgba(156, 39, 176, 0.4);
+    }
+
+    @media (max-width: 768px) {
+      .profile-info {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .action-buttons {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
