@@ -61,19 +61,22 @@
           return;
         }
 
+        console.log('Загрузка избранных игр');
         const response = await fetch('/favorites', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (!response.ok) {
           const error = await response.json();
+          console.error('Ошибка сервера:', error);
           throw new Error(error.error || 'Ошибка загрузки избранного');
         }
 
         const favorites = await response.json();
+        console.log('Избранные игры загружены:', favorites);
         renderGames(favorites);
       } catch (err) {
-        console.error("Ошибка:", err);
+        console.error("Ошибка в loadFavorites:", err);
         alert(err.message || "Не удалось загрузить избранное");
         document.getElementById('favoritesGrid').innerHTML = '<p class="no-games">Игры не найдены</p>';
       }
@@ -142,6 +145,7 @@
 
     async function toggleFavorite(gameId) {
       try {
+        console.log(`Удаление игры ${gameId} из избранного`);
         const token = localStorage.getItem('token');
         const response = await fetch(`/favorites/remove/${gameId}`, {
           method: 'DELETE',
@@ -153,12 +157,14 @@
 
         if (!response.ok) {
           const error = await response.json();
+          console.error('Ошибка сервера:', error);
           throw new Error(error.error || 'Ошибка удаления из избранного');
         }
 
+        console.log(`Игра ${gameId} удалена из избранного`);
         loadFavorites();
       } catch (err) {
-        console.error("Ошибка:", err);
+        console.error("Ошибка в toggleFavorite:", err);
         alert(err.message || "Не удалось убрать игру из избранного");
       }
     }
@@ -281,7 +287,7 @@
 
     .favorite-action {
       top: 10px;
-      left: 50px; /* Перемещаем правее рейтинга */
+      left: 50px;
     }
 
     .action-button:hover {
