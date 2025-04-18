@@ -26,7 +26,8 @@
           <div class="avatar-container">
             <img id="userAvatar" src="https://via.placeholder.com/150" alt="Аватар пользователя" class="avatar">
             <label for="avatarUpload" class="file-upload-label">Сменить аватар</label>
-            <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+            <input type="file" id="avatarUpload" accept="image/png,image/jpeg,image/gif" style="display: none;">
+            <div id="avatarLoading" class="loading" style="display: none; margin-top: 0.5rem;">Загрузка...</div>
           </div>
           <div class="user-details">
             <p><strong>Имя пользователя:</strong> <span id="username">User123</span></p>
@@ -82,8 +83,9 @@
         const userRoleEl = document.getElementById('userRole');
         const userStatusEl = document.getElementById('userStatus');
         const lastLoginEl = document.getElementById('lastLogin');
+        const userAvatarEl = document.getElementById('userAvatar');
 
-        if (!usernameEl || !userRoleEl || !userStatusEl || !lastLoginEl) {
+        if (!usernameEl || !userRoleEl || !userStatusEl || !lastLoginEl || !userAvatarEl) {
           throw new Error('Один или несколько элементов DOM не найдены');
         }
 
@@ -91,6 +93,7 @@
         userRoleEl.textContent = user.role === 'admin' ? 'Админ' : user.role === 'developer' ? 'Разработчик' : 'Игрок';
         userStatusEl.textContent = user.online ? 'Онлайн' : 'Оффлайн';
         lastLoginEl.textContent = user.lastSeen || 'Неизвестно';
+        userAvatarEl.src = user.avatar || 'https://via.placeholder.com/150';
         
         // Показать кнопку админ-панели только для админов
         const adminPanelBtn = document.getElementById('adminPanelBtn');
@@ -137,24 +140,58 @@
       }
     }
 
-    // Предпросмотр аватара
+    // Загрузка и предпросмотр аватара
     function initAvatarUpload() {
       const avatarUpload = document.getElementById('avatarUpload');
       const userAvatar = document.getElementById('userAvatar');
-      if (avatarUpload && userAvatar) {
-        avatarUpload.addEventListener('change', function(e) {
-          const file = e.target.files[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-              userAvatar.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-          }
-        });
-      } else {
-        console.warn('Элементы avatarUpload или userAvatar не найдены');
+      const avatarLoading = document.getElementById('avatarLoading');
+      if (!avatarUpload || !userAvatar || !avatarLoading) {
+        console.warn('Элементы avatarUpload, userAvatar или avatarLoading не найдены');
+        return;
       }
+
+      avatarUpload.addEventListener('change', async function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Предпросмотр
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          userAvatar.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        // Загрузка на сервер
+        try {
+          avatarLoading.style.display = 'block';
+          const formData = new FormData();
+          formData.append('avatar', file);
+
+          const token = localStorage.getItem('token');
+          const response = await fetch('/user/avatar', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Ошибка загрузки аватара');
+          }
+
+          const result = await response.json();
+          userAvatar.src = result.avatar;
+          alert('Аватар успешно загружен!');
+        } catch (err) {
+          console.error('Ошибка загрузки аватара:', err);
+          alert(err.message || 'Не удалось загрузить аватар. Попробуйте снова.');
+          userAvatar.src = 'https://via.placeholder.com/150';
+        } finally {
+          avatarLoading.style.display = 'none';
+        }
+      });
     }
 
     // Загрузка данных при загрузке страницы
@@ -269,6 +306,28 @@
 
     .admin-btn:hover {
       box-shadow: 0 5px 15px rgba(156, 39, 176, 0.4);
+    }
+
+    .loading {
+      color: #ff416c;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .loading::after {
+      content: '';
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ff416c;
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
 
     @media (max-width: 768px) {
