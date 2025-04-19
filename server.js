@@ -1,4 +1,3 @@
-// Импортируем необходимые модули
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -107,12 +106,14 @@ let users = loadData("users.json", [
     role: "admin",
     favorites: [],
     banned: false,
+    bannedUntil: null,
     suspendedUntil: null
   },
 ]).map(user => ({
   ...user,
   favorites: user.favorites || [],
   banned: user.banned || false,
+  bannedUntil: user.bannedUntil || null,
   suspendedUntil: user.suspendedUntil || null
 }));
 
@@ -167,8 +168,8 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ error: 'Неверные учетные данные' });
     }
 
-    if (user.banned) {
-      return res.status(403).json({ error: 'Ваш аккаунт заблокирован' });
+    if (user.bannedUntil && new Date(user.bannedUntil) > new Date()) {
+      return res.status(403).json({ error: `Ваш аккаунт заблокирован до ${new Date(user.bannedUntil).toLocaleString()}` });
     }
 
     if (user.suspendedUntil && new Date(user.suspendedUntil) > new Date()) {
@@ -222,6 +223,7 @@ app.post("/register", async (req, res) => {
       avatar: null,
       favorites: [],
       banned: false,
+      bannedUntil: null,
       suspendedUntil: null
     };
 
@@ -460,7 +462,7 @@ app.get("/admin/users", verifyToken, checkRole(['admin']), (req, res) => {
       online: user.online || false,
       lastSeen: user.lastSeen || null,
       avatar: user.avatar || null,
-      banned: user.banned || false,
+      bannedUntil: user.bannedUntil || null,
       suspendedUntil: user.suspendedUntil || null
     }));
     res.json(usersList);
@@ -474,6 +476,7 @@ app.get("/admin/users", verifyToken, checkRole(['admin']), (req, res) => {
 app.post("/admin/users/:username/ban", verifyToken, checkRole(['admin']), (req, res) => {
   try {
     const username = req.params.username;
+    const { banDays } = req.body;
     const user = users.find(u => u.username === username);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
@@ -481,7 +484,14 @@ app.post("/admin/users/:username/ban", verifyToken, checkRole(['admin']), (req, 
     if (user.username === req.user.username) {
       return res.status(400).json({ error: "Нельзя забанить самого себя" });
     }
-    user.banned = true;
+    if (banDays && !isNaN(banDays) && banDays > 0) {
+      const bannedUntil = new Date();
+      bannedUntil.setDate(bannedUntil.getDate() + Number(banDays));
+      user.bannedUntil = bannedUntil.toISOString();
+      user.banned = true;
+    } else {
+      return res.status(400).json({ error: "Укажите корректное количество дней для бана" });
+    }
     user.online = false;
     saveData("users.json", users);
     res.json({ success: true });
@@ -502,7 +512,7 @@ app.post("/admin/users/:username/suspend", verifyToken, checkRole(['admin']), (r
     if (user.username === req.user.username) {
       return res.status(400).json({ error: "Нельзя приостановить самого себя" });
     }
-    const suspendDays = 7; // Приостановка на 7 дней
+    const suspendDays = 7;
     const suspendedUntil = new Date();
     suspendedUntil.setDate(suspendedUntil.getDate() + suspendDays);
     user.suspendedUntil = suspendedUntil.toISOString();
