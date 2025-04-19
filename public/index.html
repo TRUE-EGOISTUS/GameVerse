@@ -169,13 +169,13 @@
         }
 
         updateAuthPanel(currentUser);
-        renderGames(currentGames, currentUser);
+        await renderGamesWithRetry(currentGames, currentUser);
       } catch (err) {
         console.error("Ошибка загрузки данных:", err);
         localStorage.removeItem('token');
         currentUser = null;
         updateAuthPanel(null);
-        renderGames([], null);
+        await renderGamesWithRetry([], null);
       } finally {
         hideLoading();
       }
@@ -248,9 +248,30 @@
       return `/games/${game.id}/simple_game/index.html`;
     }
 
+    async function renderGamesWithRetry(games, user, retries = 3, delay = 100) {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        const template = document.getElementById('game-card-template');
+        if (template) {
+          renderGames(games, user);
+          return;
+        }
+        console.warn(`Попытка ${attempt}: Шаблон 'game-card-template' не найден. Ожидание ${delay}мс...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      console.error("Не удалось найти шаблон 'game-card-template' после всех попыток");
+      document.querySelector(".games-grid").innerHTML = '<p class="no-games">Ошибка: шаблон игры не найден</p>';
+    }
+
     function renderGames(games, user) {
       const gamesContainer = document.querySelector(".games-grid");
       const template = document.getElementById("game-card-template");
+
+      if (!template) {
+        console.error("Template with ID 'game-card-template' not found");
+        gamesContainer.innerHTML = '<p class="no-games">Ошибка: шаблон игры не найден</p>';
+        return;
+      }
+
       gamesContainer.innerHTML = "";
 
       if (!games || games.length === 0) {
@@ -326,13 +347,11 @@
       }
 
       try {
-        console.log(`Тоггл избранного для игры ${gameId}`);
+        showLoading();
         const token = localStorage.getItem('token');
         const game = currentGames.find(g => g.id === gameId);
         if (!game) {
-          console.error(`Игра с ID ${gameId} не найдена в currentGames`);
-          alert('Игра не найдена');
-          return;
+          throw new Error('Игра не найдена');
         }
 
         const isFavorite = game.isFavorite || false;
@@ -349,16 +368,22 @@
 
         if (!response.ok) {
           const error = await response.json();
-          console.error('Ошибка сервера:', error);
           throw new Error(error.error || 'Ошибка обновления избранного');
         }
 
-        game.isFavorite = !isFavorite;
-        console.log(`Состояние избранного для игры ${gameId} обновлено: ${game.isFavorite}`);
-        renderGames(currentGames, currentUser);
+        const gamesRes = await fetch("/games", {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!gamesRes.ok) throw new Error('Ошибка загрузки списка игр');
+        
+        currentGames = await gamesRes.json();
+        
+        await renderGamesWithRetry(currentGames, currentUser);
       } catch (err) {
         console.error("Ошибка в toggleFavorite:", err);
         alert(err.message || "Не удалось обновить избранное");
+      } finally {
+        hideLoading();
       }
     }
 
@@ -428,13 +453,13 @@
         } else {
           currentGames = games;
         }
-        renderGames(currentGames, currentUser);
+        return renderGamesWithRetry(currentGames, currentUser);
       })
       .catch(err => {
         console.error("Ошибка применения фильтров:", err);
         alert('Не удалось загрузить игры. Попробуйте позже.');
         currentGames = [];
-        renderGames([], currentUser);
+        return renderGamesWithRetry([], currentUser);
       })
       .finally(() => {
         hideLoading();
@@ -712,5 +737,5 @@
       transform: scale(1.05);
     }
   </style>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932536836b7cc01f',t:'MTc0NDk5MDMyNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9325a58bfca0dd19',t:'MTc0NDk5NDg3NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

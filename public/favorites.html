@@ -62,7 +62,6 @@
           return;
         }
 
-        console.log('Загрузка избранных игр');
         const [favoritesResponse, userResponse] = await Promise.all([
           fetch('/favorites', {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -74,18 +73,17 @@
 
         if (!favoritesResponse.ok || !userResponse.ok) {
           const error = await (favoritesResponse.ok ? userResponse : favoritesResponse).json();
-          console.error('Ошибка сервера:', error);
           throw new Error(error.error || 'Ошибка загрузки данных');
         }
 
         const favorites = await favoritesResponse.json();
         const user = await userResponse.json();
-        console.log('Избранные игры загружены:', favorites);
 
         const userStatusEl = document.getElementById('userStatus').querySelector('span');
         userStatusEl.textContent = user.online ? 'Онлайн' : 'Оффлайн';
 
-        renderGames(favorites);
+        // Call renderGames with retry logic
+        await renderGamesWithRetry(favorites);
       } catch (err) {
         console.error("Ошибка в loadFavorites:", err);
         alert(err.message || "Не удалось загрузить избранное");
@@ -93,9 +91,30 @@
       }
     }
 
+    async function renderGamesWithRetry(games, retries = 3, delay = 100) {
+      for (let attempt = 1; attempt <= retries; attempt++) {
+        const template = document.getElementById('game-card-template');
+        if (template) {
+          renderGames(games);
+          return;
+        }
+        console.warn(`Попытка ${attempt}: Шаблон 'game-card-template' не найден. Ожидание ${delay}мс...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      console.error("Не удалось найти шаблон 'game-card-template' после всех попыток");
+      document.getElementById('favoritesGrid').innerHTML = '<p class="no-games">Ошибка: шаблон игры не найден</p>';
+    }
+
     function renderGames(games) {
       const gamesContainer = document.getElementById('favoritesGrid');
       const template = document.getElementById('game-card-template');
+
+      if (!template) {
+        console.error("Template with ID 'game-card-template' not found");
+        gamesContainer.innerHTML = '<p class="no-games">Ошибка: шаблон игры не найден</p>';
+        return;
+      }
+
       gamesContainer.innerHTML = "";
 
       if (!games || games.length === 0) {
@@ -156,7 +175,6 @@
 
     async function toggleFavorite(gameId) {
       try {
-        console.log(`Удаление игры ${gameId} из избранного`);
         const token = localStorage.getItem('token');
         const response = await fetch(`/favorites/remove/${gameId}`, {
           method: 'DELETE',
@@ -168,11 +186,9 @@
 
         if (!response.ok) {
           const error = await response.json();
-          console.error('Ошибка сервера:', error);
           throw new Error(error.error || 'Ошибка удаления из избранного');
         }
 
-        console.log(`Игра ${gameId} удалена из избранного`);
         loadFavorites();
       } catch (err) {
         console.error("Ошибка в toggleFavorite:", err);
@@ -202,7 +218,11 @@
       return ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
     }
 
-    document.addEventListener("DOMContentLoaded", loadFavorites);
+    // Ensure DOM is fully loaded before calling loadFavorites
+    document.addEventListener("DOMContentLoaded", () => {
+      console.log("DOM fully loaded for favorites.html");
+      loadFavorites();
+    });
   </script>
 
   <style>

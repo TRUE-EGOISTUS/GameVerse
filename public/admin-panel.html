@@ -1,117 +1,286 @@
+```html
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Админ-панель</title>
-  <link rel="stylesheet" href="styles.css">
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet" />
+  <!-- Main Styles -->
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="gradient-bg">
+<body class="loading">
   <header>
     <div class="header-content">
       <h1 class="neon-text">👑 Админ-панель</h1>
-      <nav>
-        <a href="index.html" class="btn neon-btn">← Назад</a>
+      <nav class="nav-links">
+        <a href="index.html" class="btn">← Назад</a>
       </nav>
     </div>
   </header>
-  <main class="main-content">
-    <div class="glass-card">
-      <h2 class="neon-subtitle">📋 Список пользователей</h2>
-      <div id="userList" class="user-list"></div>
-    </div>
+  <main class="main-container">
+    <section class="filter-section">
+      <div class="filter-panel">
+        <h2 class="section-title">Фильтры пользователей</h2>
+        <div class="genre-buttons">
+          <input type="text" id="searchInput" placeholder="Поиск пользователя" aria-label="Поиск пользователей" />
+          <select id="roleFilter" aria-label="Фильтр по роли">
+            <option value="">Все роли</option>
+            <option value="admin">Администратор</option>
+            <option value="developer">Разработчик</option>
+            <option value="user">Пользователь</option>
+          </select>
+          <select id="statusFilter" aria-label="Фильтр по статусу">
+            <option value="">Все статусы</option>
+            <option value="online">В сети</option>
+            <option value="offline">Не в сети</option>
+          </select>
+          <button id="refreshBtn" class="btn">Обновить</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="games-section">
+      <div id="loader" class="loading"></div>
+      <div id="errorMsg" class="errorMsg"></div>
+      <div id="successMsg" class="successMsg"></div>
+      <div class="games-grid user-list" id="userList" aria-live="polite"></div>
+    </section>
   </main>
+
+  <!-- Moderation Modal -->
+  <div id="moderationModal" class="modal">
+    <div class="modal-content">
+      <h3>Модерировать пользователя <span id="modUserName"></span></h3>
+      <div class="input-group">
+        <label for="actionSelect">Действие:</label>
+        <select id="actionSelect">
+          <option value="ban">Забанить</option>
+          <option value="suspend">Приостановить</option>
+          <option value="change_role">Изменить роль</option>
+          <option value="delete">Удалить</option>
+        </select>
+      </div>
+      <div class="input-group" id="roleGroup" style="display:none;">
+        <label for="newRoleSelect">Новая роль:</label>
+        <select id="newRoleSelect">
+          <option value="user">Пользователь</option>
+          <option value="developer">Разработчик</option>
+          <option value="admin">Администратор</option>
+        </select>
+      </div>
+      <div class="game-buttons admin-buttons">
+        <button id="confirmModeration" class="rate-btn">Применить</button>
+        <button id="cancelModeration" class="btn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
   <script>
-    async function loadUsers() {
+    let usersData = [];
+    let modUser = null;
+    const loader = document.getElementById('loader');
+    const errorMsg = document.getElementById('errorMsg');
+    const successMsg = document.getElementById('successMsg');
+    const searchInput = document.getElementById('searchInput');
+    const roleFilter = document.getElementById('roleFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const userList = document.getElementById('userList');
+    const modal = document.getElementById('moderationModal');
+    const modUserName = document.getElementById('modUserName');
+    const actionSelect = document.getElementById('actionSelect');
+    const roleGroup = document.getElementById('roleGroup');
+    const newRoleSelect = document.getElementById('newRoleSelect');
+    const confirmBtn = document.getElementById('confirmModeration');
+    const cancelBtn = document.getElementById('cancelModeration');
+
+    function setLoading(active) {
+      document.body.classList.toggle('loading', active);
+      loader.style.display = active ? 'block' : 'none';
+    }
+
+    function showError(message) {
+      errorMsg.textContent = message;
+      errorMsg.style.display = 'block';
+      successMsg.style.display = 'none';
+      setTimeout(() => {
+        errorMsg.style.display = 'none';
+      }, 5000);
+    }
+
+    function showSuccess(message) {
+      successMsg.textContent = message;
+      successMsg.style.display = 'block';
+      errorMsg.style.display = 'none';
+      setTimeout(() => {
+        successMsg.style.display = 'none';
+      }, 5000);
+    }
+
+    function applyFilters() {
+      const q = searchInput.value.toLowerCase();
+      const r = roleFilter.value;
+      const s = statusFilter.value;
+      const filtered = usersData.filter(u => (
+        (!r || u.role === r) &&
+        (!s || (s === 'online' ? u.online : !u.online)) &&
+        u.username.toLowerCase().includes(q)
+      ));
+      renderUsers(filtered);
+    }
+
+    function renderUsers(list) {
+      userList.innerHTML = list.map(u => `
+        <div class="user-card" tabindex="0">
+          <div class="user-info-header">
+            <span class="user-name">👤 <strong>${u.username}</strong></span>
+            <span class="user-status ${u.online ? 'status-online' : 'status-offline'}">${u.online ? '🟢' : '🔴'}</span>
+          </div>
+          <div class="user-role-badge role-${u.role}">${u.role === 'admin' ? '👑 Админ' : u.role === 'developer' ? '💻 Разработчик' : '🎮 Игрок'}</div>
+          <div class="user-status-info">
+            ${u.banned ? '<span class="status-banned">🚫 Забанен</span>' : ''}
+            ${u.suspendedUntil && new Date(u.suspendedUntil) > new Date() ? `<span class="status-suspended">⏸ Приостановлен до ${new Date(u.suspendedUntil).toLocaleDateString()}</span>` : ''}
+          </div>
+          <div class="admin-buttons">
+            <button class="rate-btn" onclick="openModeration('${u.username}')">Модерировать</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function fetchUsers() {
+      setLoading(true);
+      errorMsg.textContent = '';
+      successMsg.textContent = '';
       try {
         const token = localStorage.getItem('token');
-        if (!token) {
-          alert('Доступ запрещен');
-          window.location.href = '/login.html';
-          return;
+        if (!token) throw new Error('Не авторизован');
+        const res = await fetch('/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.status === 403) throw new Error('Нет прав доступа');
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || 'Ошибка загрузки');
         }
-
-        const response = await fetch("/admin/users", {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.status === 403) {
-          alert('Нет прав доступа');
-          window.location.href = '/';
-          return;
-        }
-
-        if (!response.ok) throw new Error("Ошибка загрузки пользователей");
-        
-        const users = await response.json();
-        const userList = document.getElementById("userList");
-        userList.innerHTML = users.map(user => `
-          <div class="user-card">
-            <div class="user-info-header">
-              <span class="user-name">👤 <strong>${user.username}</strong></span>
-              <span class="user-status ${user.online ? 'status-online' : 'status-offline'}">
-                ${user.online ? "🟢 В сети" : "🔴 Не в сети"}
-              </span>
-            </div>
-            <div class="user-role-badge role-${user.role}">
-              ${
-                user.role === 'admin' ? '👑 Администратор' :
-                user.role === 'developer' ? '💻 Разработчик' :
-                '🎮 Пользователь'
-              }
-            </div>
-          </div>
-        `).join("");
-      } catch (err) {
-        console.error("Ошибка:", err);
-        alert("Не удалось загрузить список пользователей");
+        usersData = await res.json();
+        applyFilters();
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        setLoading(false);
       }
     }
 
-    // Проверяем права доступа при загрузке страницы
-    document.addEventListener("DOMContentLoaded", async () => {
+    function openModeration(username) {
+      modUser = username;
+      modUserName.textContent = username;
+      actionSelect.value = 'ban';
+      roleGroup.style.display = 'none';
+      modal.classList.add('active');
+    }
+
+    actionSelect.addEventListener('change', () => {
+      roleGroup.style.display = actionSelect.value === 'change_role' ? 'block' : 'none';
+    });
+
+    async function applyModeration() {
+      const action = actionSelect.value;
       const token = localStorage.getItem('token');
-      if (!token) {
-        window.location.href = '/login.html';
-        return;
-      }
-
+      let url = `/admin/users/${modUser}`;
+      let opts = { 
+        headers: { 
+          'Authorization': `Bearer ${token}`, 
+          'Content-Type': 'application/json' 
+        } 
+      };
+      let successMessage = '';
       try {
-        const response = await fetch("/user-data", {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Ошибка авторизации');
+        switch(action) {
+          case 'ban':
+            opts.method = 'POST'; 
+            url += '/ban'; 
+            successMessage = `Пользователь ${modUser} забанен`;
+            break;
+          case 'suspend':
+            opts.method = 'POST'; 
+            url += '/suspend'; 
+            successMessage = `Пользователь ${modUser} приостановлен на 7 дней`;
+            break;
+          case 'change_role':
+            opts.method = 'PUT'; 
+            url += '/role'; 
+            opts.body = JSON.stringify({ role: newRoleSelect.value }); 
+            successMessage = `Роль пользователя ${modUser} изменена на ${newRoleSelect.value}`;
+            break;
+          case 'delete':
+            opts.method = 'DELETE'; 
+            successMessage = `Пользователь ${modUser} удалён`;
+            break;
         }
-
-        const user = await response.json();
-        if (user.role !== 'admin') {
-          alert('Доступ запрещен');
-          window.location.href = '/';
-          return;
+        const res = await fetch(url, opts);
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.error || 'Ошибка модерации');
         }
+        await fetchUsers();
+        showSuccess(successMessage);
+      } catch (e) {
+        showError(e.message);
+      } finally {
+        modal.classList.remove('active');
+      }
+    }
 
-        loadUsers();
-        // Обновляем список каждые 10 секунд
-        setInterval(loadUsers, 10000);
-      } catch (err) {
-        console.error('Ошибка:', err);
+    cancelBtn.addEventListener('click', () => modal.classList.remove('active'));
+    confirmBtn.addEventListener('click', applyModeration);
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) throw new Error();
+        const usr = await (await fetch('/user-data', { headers: { 'Authorization': `Bearer ${token}` } })).json();
+        if (usr.role !== 'admin') throw new Error('Доступ запрещен');
+        await fetchUsers();
+        setInterval(fetchUsers, 15000);
+      } catch {
         window.location.href = '/login.html';
       }
     });
+
+    [searchInput, roleFilter, statusFilter].forEach(el => el.addEventListener('input', applyFilters));
+    refreshBtn.addEventListener('click', fetchUsers);
   </script>
 
   <style>
+    .errorMsg {
+      color: #ff416c;
+      background: rgba(255, 65, 108, 0.1);
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      display: none;
+      text-align: center;
+    }
+
+    .successMsg {
+      color: #00ff88;
+      background: rgba(0, 255, 136, 0.1);
+      padding: 1rem;
+      border-radius: 8px;
+      margin: 1rem 0;
+      display: none;
+      text-align: center;
+    }
+
     .user-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
       padding: 1.5rem;
-      margin-bottom: 1rem;
-      transition: all 0.3s ease;
+      transition: transform 0.3s ease;
+      cursor: pointer;
+      position: relative;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
     }
 
     .user-info-header {
@@ -121,45 +290,116 @@
       margin-bottom: 0.5rem;
     }
 
+    .user-name {
+      font-size: 1.2rem;
+      color: #fff;
+    }
+
+    .user-status {
+      font-size: 1rem;
+    }
+
+    .status-online::after {
+      content: 'Онлайн';
+      color: #00ff88;
+    }
+
+    .status-offline::after {
+      content: 'Оффлайн';
+      color: #ff416c;
+    }
+
     .user-role-badge {
       display: inline-block;
       padding: 0.5rem 1rem;
       border-radius: 20px;
       font-size: 0.9rem;
-      margin-top: 0.5rem;
+      margin: 0.5rem 0;
+      color: #fff;
     }
 
     .role-admin {
-      background: linear-gradient(135deg, #ff416c, #ff4b2b);
-      color: white;
+      background: linear-gradient(135deg, #9c27b0, #ff416c);
     }
 
     .role-developer {
-      background: linear-gradient(135deg, #4b6cb7, #182848);
-      color: white;
+      background: linear-gradient(135deg, #2196f3, #4caf50);
     }
 
     .role-user {
-      background: linear-gradient(135deg, #24C6DC, #514A9D);
-      color: white;
+      background: linear-gradient(135deg, #ff9800, #ff5722);
     }
 
-    .user-status {
-      padding: 5px 10px;
-      border-radius: 15px;
+    .user-status-info {
+      margin: 0.5rem 0;
       font-size: 0.9rem;
-      font-weight: 500;
     }
 
-    .status-online {
-      background: rgba(76, 175, 80, 0.2);
-      color: #4CAF50;
+    .status-banned {
+      color: #ff416c;
+      background: rgba(255, 65, 108, 0.2);
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
     }
 
-    .status-offline {
-      background: rgba(244, 67, 54, 0.2);
-      color: #f44336;
+    .status-suspended {
+      color: #ff9800;
+      background: rgba(255, 152, 0, 0.2);
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: #1a1a2e;
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 0 20px rgba(255, 65, 108, 0.5);
+    }
+
+    .input-group {
+      margin: 1rem 0;
+    }
+
+    .input-group label {
+      display: block;
+      color: #ff416c;
+      margin-bottom: 0.5rem;
+    }
+
+    .input-group select {
+      width: 100%;
+      padding: 0.8rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 1px solid #ff416c;
+    }
+
+    .admin-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: flex-end;
     }
   </style>
 </body>
 </html>
+```
