@@ -1,3 +1,4 @@
+// Импортируем необходимые модули
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -104,8 +105,16 @@ let users = loadData("users.json", [
     username: "admin",
     password: "$2b$10$7DiZlNi0I33ntPSBWwvCXuCPkMiT9vgr7hr7Nm/MhujppY0ZCBMkq", // 123456
     role: "admin",
+    favorites: [],
+    banned: false,
+    suspendedUntil: null
   },
-]);
+]).map(user => ({
+  ...user,
+  favorites: user.favorites || [],
+  banned: user.banned || false,
+  suspendedUntil: user.suspendedUntil || null
+}));
 
 let games = loadData("games.json", []);
 
@@ -158,6 +167,14 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ error: 'Неверные учетные данные' });
     }
 
+    if (user.banned) {
+      return res.status(403).json({ error: 'Ваш аккаунт заблокирован' });
+    }
+
+    if (user.suspendedUntil && new Date(user.suspendedUntil) > new Date()) {
+      return res.status(403).json({ error: `Ваш аккаунт приостановлен до ${new Date(user.suspendedUntil).toLocaleString()}` });
+    }
+
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
       JWT_SECRET,
@@ -165,6 +182,7 @@ app.post("/login", async (req, res) => {
     );
 
     user.online = true;
+    user.lastSeen = new Date().toISOString();
     saveData("users.json", users);
 
     res.json({ 
@@ -201,7 +219,10 @@ app.post("/register", async (req, res) => {
       password: hashedPassword,
       role: role || 'user',
       online: true,
-      avatar: null
+      avatar: null,
+      favorites: [],
+      banned: false,
+      suspendedUntil: null
     };
 
     const token = jwt.sign(
@@ -213,7 +234,7 @@ app.post("/register", async (req, res) => {
     users.push(newUser);
     saveData("users.json", users);
 
-    res.json({ token, user: { id: newUser.id, username: newUser.username, role: newUser.role, avatar: null } });
+    res.json({ token, user: { id: newUser.id, username: newUser.username, role: newUser.role, avatar: null, favorites: [] } });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
   }
@@ -232,6 +253,7 @@ app.post("/logout", async (req, res) => {
         const user = users.find(u => u.id.toString() === userId.toString());
         if (user) {
           user.online = false;
+          user.lastSeen = new Date().toISOString();
           saveData("users.json", users);
         }
       } catch (err) {
@@ -288,6 +310,79 @@ app.get("/user-data", verifyToken, (req, res) => {
   });
 });
 
+// Получение списка избранных игр
+app.get("/favorites", verifyToken, async (req, res) => {
+  try {
+    const user = users.find(u => u.id === req.user.id);
+    if (!user || !user.favorites) {
+      return res.json([]);
+    }
+
+    const favoriteGames = games.filter(game => user.favorites.includes(game.id));
+    res.json(favoriteGames);
+  } catch (err) {
+    console.error("Ошибка получения избранных игр:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Добавление игры в избранное
+app.post("/favorites/add/:gameId", verifyToken, async (req, res) => {
+  try {
+    const gameId = req.params.gameId;
+    const game = games.find(g => g.id === gameId);
+    if (!game) {
+      console.log(`Игра с ID ${gameId} не найдена`);
+      return res.status(404).json({ error: "Игра не найдена" });
+    }
+
+    const user = users.find(u => u.id === req.user.id);
+    if (!user) {
+      console.log(`Пользователь с ID ${req.user.id} не найден`);
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    if (user.favorites.includes(gameId)) {
+      console.log(`Игра ${gameId} уже в избранном пользователя ${user.id}`);
+      return res.status(400).json({ error: "Игра уже в избранном" });
+    }
+
+    user.favorites.push(gameId);
+    console.log(`Добавлена игра ${gameId} в избранное пользователя ${user.id}`);
+    if (saveData("users.json", users)) {
+      res.json({ success: true });
+    } else {
+      throw new Error("Ошибка сохранения данных");
+    }
+  } catch (err) {
+    console.error("Ошибка добавления в избранное:", err);
+    res.status(500).json({ error: "Ошибка сервера: " + err.message });
+  }
+});
+
+// Удаление игры из избранного
+app.delete("/favorites/remove/:gameId", verifyToken, async (req, res) => {
+  try {
+    const gameId = req.params.gameId;
+    const user = users.find(u => u.id === req.user.id);
+    if (!user) {
+      console.log(`Пользователь с ID ${req.user.id} не найден`);
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+
+    user.favorites = user.favorites.filter(id => id !== gameId);
+    console.log(`Удалена игра ${gameId} из избранного пользователя ${user.id}`);
+    if (saveData("users.json", users)) {
+      res.json({ success: true });
+    } else {
+      throw new Error("Ошибка сохранения данных");
+    }
+  } catch (err) {
+    console.error("Ошибка удаления из избранного:", err);
+    res.status(500).json({ error: "Ошибка сервера: " + err.message });
+  }
+});
+
 // Получение списка игр
 app.get("/games", async (req, res) => {
   try {
@@ -317,14 +412,14 @@ app.get("/games", async (req, res) => {
             const avgA = Array.isArray(a.ratings) && a.ratings.length
               ? a.ratings.reduce((sum, r) => sum + Number(r.rating || 0), 0) / a.ratings.length : 0;
             const avgB = Array.isArray(b.ratings) && b.ratings.length
-              ? b.ratings.reduce((sum, r) => sum + Number(r.rating || 0), 0) / a.ratings.length : 0;
+              ? b.ratings.reduce((sum, r) => sum + Number(r.rating || 0), 0) / b.ratings.length : 0;
             return avgB - avgA;
           });
           break;
         case 'date':
           filteredGames.sort((a, b) => {
             const dateA = new Date(a.uploadDate || a.id || 0).getTime();
-            const dateB = new Date(b.uploadDate || b.id || 0).getTime();
+            const dateB = new Date(b.uploadDate || a.id || 0).getTime();
             return dateB - dateA;
           });
           break;
@@ -338,11 +433,13 @@ app.get("/games", async (req, res) => {
         if (user) {
           filteredGames = filteredGames.map(game => ({
             ...game,
+            isFavorite: user.favorites.includes(game.id),
             canEdit: user.role === 'admin' || game.author === user.username,
             hasRated: Array.isArray(game.ratings) && game.ratings.some(r => r.user === user.username)
           }));
         }
       } catch (err) {
+        console.error('Ошибка проверки токена:', err);
       }
     }
 
@@ -362,11 +459,102 @@ app.get("/admin/users", verifyToken, checkRole(['admin']), (req, res) => {
       role: user.role,
       online: user.online || false,
       lastSeen: user.lastSeen || null,
-      avatar: user.avatar || null
+      avatar: user.avatar || null,
+      banned: user.banned || false,
+      suspendedUntil: user.suspendedUntil || null
     }));
     res.json(usersList);
   } catch (err) {
     console.error("Ошибка получения списка пользователей:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Бан пользователя
+app.post("/admin/users/:username/ban", verifyToken, checkRole(['admin']), (req, res) => {
+  try {
+    const username = req.params.username;
+    const user = users.find(u => u.username === username);
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+    if (user.username === req.user.username) {
+      return res.status(400).json({ error: "Нельзя забанить самого себя" });
+    }
+    user.banned = true;
+    user.online = false;
+    saveData("users.json", users);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка бана пользователя:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Приостановка пользователя
+app.post("/admin/users/:username/suspend", verifyToken, checkRole(['admin']), (req, res) => {
+  try {
+    const username = req.params.username;
+    const user = users.find(u => u.username === username);
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+    if (user.username === req.user.username) {
+      return res.status(400).json({ error: "Нельзя приостановить самого себя" });
+    }
+    const suspendDays = 7; // Приостановка на 7 дней
+    const suspendedUntil = new Date();
+    suspendedUntil.setDate(suspendedUntil.getDate() + suspendDays);
+    user.suspendedUntil = suspendedUntil.toISOString();
+    user.online = false;
+    saveData("users.json", users);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка приостановки пользователя:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Изменение роли пользователя
+app.put("/admin/users/:username/role", verifyToken, checkRole(['admin']), (req, res) => {
+  try {
+    const username = req.params.username;
+    const { role } = req.body;
+    if (!['user', 'developer', 'admin'].includes(role)) {
+      return res.status(400).json({ error: "Недопустимая роль" });
+    }
+    const user = users.find(u => u.username === username);
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+    if (user.username === req.user.username) {
+      return res.status(400).json({ error: "Нельзя изменить роль самому себе" });
+    }
+    user.role = role;
+    saveData("users.json", users);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка изменения роли:", err);
+    res.status(500).json({ error: "Ошибка сервера" });
+  }
+});
+
+// Удаление пользователя
+app.delete("/admin/users/:username", verifyToken, checkRole(['admin']), (req, res) => {
+  try {
+    const username = req.params.username;
+    const user = users.find(u => u.username === username);
+    if (!user) {
+      return res.status(404).json({ error: "Пользователь не найден" });
+    }
+    if (user.username === req.user.username) {
+      return res.status(400).json({ error: "Нельзя удалить самого себя" });
+    }
+    users = users.filter(u => u.username !== username);
+    saveData("users.json", users);
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Ошибка удаления пользователя:", err);
     res.status(500).json({ error: "Ошибка сервера" });
   }
 });
@@ -381,19 +569,22 @@ app.get("/games/:id", async (req, res) => {
       return res.status(404).json({ error: "Игра не найдена" });
     }
 
+    let responseGame = { ...game };
+
     if (token) {
       try {
         const decoded = jwt.verify(token, JWT_SECRET);
         const user = users.find(u => u.id.toString() === decoded.id.toString());
         if (user) {
-          game.canEdit = user.role === 'admin' || game.author === user.username;
+          responseGame.isFavorite = user.favorites.includes(game.id);
+          responseGame.canEdit = user.role === 'admin' || game.author === user.username;
         }
       } catch (err) {
         console.error('Ошибка проверки токена:', err);
       }
     }
 
-    res.json(game);
+    res.json(responseGame);
   } catch (err) {
     console.error("Ошибка получения игры:", err);
     res.status(500).json({ error: "Ошибка сервера" });
