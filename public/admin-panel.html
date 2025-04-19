@@ -65,6 +65,10 @@
         <label for="banDuration">Длительность бана (дни):</label>
         <input type="number" id="banDuration" min="1" value="1" placeholder="Введите количество дней" />
       </div>
+      <div class="input-group" id="banReasonGroup" style="display:none;">
+        <label for="banReason">Причина бана:</label>
+        <textarea id="banReason" rows="3" placeholder="Укажите причину бана"></textarea>
+      </div>
       <div class="input-group" id="roleGroup" style="display:none;">
         <label for="newRoleSelect">Новая роль:</label>
         <select id="newRoleSelect">
@@ -96,7 +100,9 @@
     const actionSelect = document.getElementById('actionSelect');
     const roleGroup = document.getElementById('roleGroup');
     const banDurationGroup = document.getElementById('banDurationGroup');
+    const banReasonGroup = document.getElementById('banReasonGroup');
     const banDuration = document.getElementById('banDuration');
+    const banReason = document.getElementById('banReason');
     const newRoleSelect = document.getElementById('newRoleSelect');
     const confirmBtn = document.getElementById('confirmModeration');
     const cancelBtn = document.getElementById('cancelModeration');
@@ -145,7 +151,7 @@
           </div>
           <div class="user-role-badge role-${u.role}">${u.role === 'admin' ? '👑 Админ' : u.role === 'developer' ? '💻 Разработчик' : '🎮 Игрок'}</div>
           <div class="user-status-info">
-            ${u.banned ? '<span class="status-banned">🚫 Забанен</span>' : ''}
+            ${u.bannedUntil && new Date(u.bannedUntil) > new Date() ? `<span class="status-banned">🚫 Забанен${u.banReason ? ': ' + u.banReason : ''}</span>` : ''}
             ${u.suspendedUntil && new Date(u.suspendedUntil) > new Date() ? `<span class="status-suspended">⏸ Приостановлен до ${new Date(u.suspendedUntil).toLocaleDateString()}</span>` : ''}
           </div>
           <div class="admin-buttons">
@@ -183,12 +189,15 @@
       actionSelect.value = 'ban';
       roleGroup.style.display = 'none';
       banDurationGroup.style.display = 'block';
+      banReasonGroup.style.display = 'block';
+      banReason.value = '';
       modal.classList.add('active');
     }
 
     actionSelect.addEventListener('change', () => {
       roleGroup.style.display = actionSelect.value === 'change_role' ? 'block' : 'none';
       banDurationGroup.style.display = actionSelect.value === 'ban' ? 'block' : 'none';
+      banReasonGroup.style.display = actionSelect.value === 'ban' ? 'block' : 'none';
     });
 
     async function applyModeration() {
@@ -208,11 +217,12 @@
             opts.method = 'POST'; 
             url += '/ban'; 
             const banDays = parseInt(banDuration.value);
+            const reason = banReason.value.trim();
             if (isNaN(banDays) || banDays < 1) {
               throw new Error('Укажите корректное количество дней для бана');
             }
-            opts.body = JSON.stringify({ banDays });
-            successMessage = `Пользователь ${modUser} забанен на ${banDays} дней`;
+            opts.body = JSON.stringify({ banDays, banReason: reason });
+            successMessage = `Пользователь ${modUser} забанен на ${banDays} дней${reason ? ' по причине: ' + reason : ''}`;
             break;
           case 'suspend':
             opts.method = 'POST'; 
@@ -408,7 +418,8 @@
     }
 
     .input-group select,
-    .input-group input {
+    .input-group input,
+    .input-group textarea {
       width: 100%;
       padding: 0.8rem;
       border-radius: 8px;
@@ -416,6 +427,34 @@
       color: #fff;
       border: 1px solid #ff416c;
       box-sizing: border-box;
+      font-size: 1rem;
+    }
+
+    .input-group select {
+      background: #2a2a3e;
+      appearance: none;
+      padding-right: 2rem;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="white" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5H7z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 0.7rem center;
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .input-group select:focus {
+      outline: none;
+      border-color: #00ff88;
+      box-shadow: 0 0 5px rgba(0, 255, 136, 0.5);
+    }
+
+    .input-group select option {
+      background: #2a2a3e;
+      color: #fff;
+    }
+
+    .input-group textarea {
+      resize: vertical;
+      min-height: 80px;
     }
 
     .input-group input[type="number"] {
