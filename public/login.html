@@ -19,6 +19,7 @@
   <main class="main-content container">
     <form id="loginForm" class="glass-card mx-auto p-4" onsubmit="handleLogin(event)" style="max-width: 500px;">
       <h2 class="neon-subtitle text-center">🚀 Аутентификация</h2>
+      <div id="banMessage" class="text-center text-danger" style="display: none; margin-bottom: 1rem;"></div>
       <div class="input-group">
         <input type="text" name="username" class="neon-input" placeholder="👤 Логин" required>
       </div>
@@ -33,6 +34,7 @@
     async function handleLogin(e) {
       e.preventDefault();
       const form = e.target;
+      const banMessageDiv = document.getElementById('banMessage');
       
       try {
         const response = await fetch('/login', {
@@ -47,10 +49,14 @@
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Ошибка авторизации');
-        }
-        
-        if (data.token) {
+          if (data.error === 'user_banned' && data.banInfo) {
+            const banEnd = new Date(data.banInfo.banEnd).toLocaleString('ru-RU');
+            banMessageDiv.textContent = `Ваш аккаунт заблокирован до ${banEnd}. Причина: ${data.banInfo.reason}`;
+            banMessageDiv.style.display = 'block';
+          } else {
+            throw new Error(data.error || 'Ошибка авторизации');
+          }
+        } else if (data.token) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
           window.location.href = '/';
@@ -58,9 +64,12 @@
           throw new Error('Токен не получен');
         }
       } catch (err) {
-        alert(err.message);
+        if (!banMessageDiv.textContent) {
+          alert(err.message);
+        }
       }
     }
   </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932bcc14af3fbf68',t:'MTc0NTA1OTM2Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script>
 </body>
 </html>
