@@ -27,6 +27,7 @@
   </header>
 
   <main class="main-container">
+    <div id="banMessage" class="text-center text-danger" style="display: none; margin: 2rem auto; max-width: 600px;"></div>
     <section class="filter-section">
       <div class="genre-panel glass-card">
         <h2 class="genre-title">Жанры</h2>
@@ -105,25 +106,27 @@
   <script>
     async function checkNotifications() {
       try {
-        const response = await fetch('/user-data');
-        const user = await response.json();
-        
-        if (user) {
-          const notificationsRes = await fetch('/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username: user.username })
-          });
-          
-          const data = await notificationsRes.json();
-          
-          if (data.notifications && data.notifications.length > 0) {
-            const messages = data.notifications.map(n => 
-              `Игра "${n.gameName}" была удалена.\nПричина: ${n.reason}\nДата: ${new Date(n.deletedAt).toLocaleString()}`
-            ).join('\n\n');
-            
-            alert(messages);
-          }
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const userRes = await fetch('/user-data', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!userRes.ok) return;
+
+        const user = await userRes.json();
+        const notificationsRes = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: user.username })
+        });
+
+        const data = await notificationsRes.json();
+        if (data.notifications && data.notifications.length > 0) {
+          const messages = data.notifications.map(n =>
+            `Игра "${n.gameName}" была удалена.\nПричина: ${n.reason}\nДата: ${new Date(n.deletedAt).toLocaleString()}`
+          ).join('\n\n');
+          alert(messages);
         }
       } catch (err) {
         console.error('Ошибка проверки уведомлений:', err);
@@ -147,21 +150,36 @@
 
     async function loadData() {
       showLoading();
+      const banMessageDiv = document.getElementById('banMessage');
+      banMessageDiv.style.display = 'none'; // Reset ban message
+
       try {
         const token = localStorage.getItem('token');
         const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
         const gamesRes = await fetch("/games", { headers });
         if (!gamesRes.ok) throw new Error('Ошибка загрузки списка игр');
-        
         currentGames = await gamesRes.json();
-        
+
         if (token) {
-          const userRes = await fetch("/user-data", { headers });
-          if (userRes.ok) {
-            currentUser = await userRes.json();
-          } else {
+          try {
+            const userRes = await fetch("/user-data", { headers });
+            if (userRes.ok) {
+              currentUser = await userRes.json();
+              if (currentUser.banned && currentUser.bannedUntil && new Date(currentUser.bannedUntil) > new Date()) {
+                const banEnd = new Date(currentUser.bannedUntil).toLocaleString('ru-RU');
+                banMessageDiv.textContent = `Ваш аккаунт заблокирован до ${banEnd}. Причина: ${currentUser.banReason || 'Причина не указана'}`;
+                banMessageDiv.style.display = 'block';
+                localStorage.removeItem('token'); // Clear token to prevent further actions
+                currentUser = null;
+              }
+            } else {
+              throw new Error('Ошибка загрузки данных пользователя');
+            }
+          } catch (err) {
+            console.warn('Ошибка аутентификации:', err);
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
             currentUser = null;
           }
         } else {
@@ -173,6 +191,7 @@
       } catch (err) {
         console.error("Ошибка загрузки данных:", err);
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
         currentUser = null;
         updateAuthPanel(null);
         await renderGamesWithRetry([], null);
@@ -184,40 +203,29 @@
     async function logout() {
       try {
         const token = localStorage.getItem('token');
-        if (!token) {
-          window.location.href = '/';
-          return;
+        if (token) {
+          await fetch("/logout", {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
         }
-
-        const response = await fetch("/logout", {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
+      } catch (err) {
+        console.error("Ошибка выхода:", err);
+      } finally {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         currentUser = null;
-
+        document.getElementById('banMessage').style.display = 'none';
         updateAuthPanel(null);
         loadData();
-
-        window.location.href = '/';
-      } catch (err) {
-        console.error("Ошибка выхода:", err);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/';
       }
     }
 
     function updateAuthPanel(user) {
       const authPanel = document.getElementById("authPanel");
       if (!authPanel) return;
-      
-      const token = localStorage.getItem('token');
-      if (user && token) {
+
+      if (user && user.username && localStorage.getItem('token')) {
         authPanel.innerHTML = `
           <div class="user-info">
             <img src="${user.avatar || 'https://via.placeholder.com/40'}" alt="Аватар" class="user-avatar">
@@ -244,7 +252,6 @@
       if (game.path && typeof game.path === "string") {
         return `/games/${game.id}/${game.path.split('/').slice(2).join('/')}`;
       }
-      
       return `/games/${game.id}/simple_game/index.html`;
     }
 
@@ -377,7 +384,6 @@
         if (!gamesRes.ok) throw new Error('Ошибка загрузки списка игр');
         
         currentGames = await gamesRes.json();
-        
         await renderGamesWithRetry(currentGames, currentUser);
       } catch (err) {
         console.error("Ошибка в toggleFavorite:", err);
@@ -592,33 +598,10 @@
       window.location.href = `edit-game.html?id=${gameId}`;
     }
 
-    function updateNavigation() {
-      try {
-        fetch("/current-user")
-          .then(res => res.json())
-          .then(user => {
-            const authPanel = document.getElementById("authPanel");
-            if (user) {
-              authPanel.innerHTML = `
-                <div class="user-info">
-                  <img src="${user.avatar || 'https://via.placeholder.com/40'}" alt="Аватар" class="user-avatar">
-                  <span>${user.username}</span>
-                  <a href="lichniy_cabinet.html" class="btn neon-btn">Кабинет</a>
-                  <button onclick="logout()" class="btn neon-btn">Выйти</button>
-                </div>
-              `;
-            }
-          });
-      } catch (err) {
-        console.error("Ошибка обновления навигации:", err);
-      }
-    }
-
     document.addEventListener("DOMContentLoaded", () => {
       loadData();
       checkNotifications();
       initAuthDropdown();
-      updateNavigation();
       initFilters();
     });
 
@@ -721,6 +704,16 @@
       .error-card p {
         margin-bottom: 1.5rem;
       }
+
+      .text-danger {
+        color: #ff4444;
+        font-size: 1.2rem;
+        font-weight: bold;
+      }
+
+      .text-center {
+        text-align: center;
+      }
     `;
 
     document.head.insertAdjacentHTML('beforeend', `<style>${errorStyles}</style>`);
@@ -737,5 +730,5 @@
       transform: scale(1.05);
     }
   </style>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9325a58bfca0dd19',t:'MTc0NDk5NDg3NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9325a58bfca0dd19',t:'MTc0NDk5NDg3NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'932bd37d6ce6b013',t:'MTc0NTA1OTY3MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
