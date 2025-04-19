@@ -107,6 +107,7 @@ let users = loadData("users.json", [
     favorites: [],
     banned: false,
     bannedUntil: null,
+    banReason: null,
     suspendedUntil: null
   },
 ]).map(user => ({
@@ -114,6 +115,7 @@ let users = loadData("users.json", [
   favorites: user.favorites || [],
   banned: user.banned || false,
   bannedUntil: user.bannedUntil || null,
+  banReason: user.banReason || null,
   suspendedUntil: user.suspendedUntil || null
 }));
 
@@ -169,7 +171,10 @@ app.post("/login", async (req, res) => {
     }
 
     if (user.bannedUntil && new Date(user.bannedUntil) > new Date()) {
-      return res.status(403).json({ error: `Ваш аккаунт заблокирован до ${new Date(user.bannedUntil).toLocaleString()}` });
+      return res.status(403).json({ 
+        error: `Ваш аккаунт заблокирован до ${new Date(user.bannedUntil).toLocaleString()}`,
+        banReason: user.banReason || 'Причина не указана'
+      });
     }
 
     if (user.suspendedUntil && new Date(user.suspendedUntil) > new Date()) {
@@ -177,7 +182,11 @@ app.post("/login", async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -193,7 +202,8 @@ app.post("/login", async (req, res) => {
         username: user.username,
         role: user.role,
         avatar: user.avatar || null
-      }
+      },
+      notifications: [] // Заглушка для уведомлений
     });
   } catch (err) {
     res.status(500).json({ error: 'Ошибка сервера' });
@@ -224,6 +234,7 @@ app.post("/register", async (req, res) => {
       favorites: [],
       banned: false,
       bannedUntil: null,
+      banReason: null,
       suspendedUntil: null
     };
 
@@ -463,6 +474,7 @@ app.get("/admin/users", verifyToken, checkRole(['admin']), (req, res) => {
       lastSeen: user.lastSeen || null,
       avatar: user.avatar || null,
       bannedUntil: user.bannedUntil || null,
+      banReason: user.banReason || null,
       suspendedUntil: user.suspendedUntil || null
     }));
     res.json(usersList);
@@ -476,7 +488,7 @@ app.get("/admin/users", verifyToken, checkRole(['admin']), (req, res) => {
 app.post("/admin/users/:username/ban", verifyToken, checkRole(['admin']), (req, res) => {
   try {
     const username = req.params.username;
-    const { banDays } = req.body;
+    const { banDays, banReason } = req.body;
     const user = users.find(u => u.username === username);
     if (!user) {
       return res.status(404).json({ error: "Пользователь не найден" });
@@ -489,6 +501,7 @@ app.post("/admin/users/:username/ban", verifyToken, checkRole(['admin']), (req, 
       bannedUntil.setDate(bannedUntil.getDate() + Number(banDays));
       user.bannedUntil = bannedUntil.toISOString();
       user.banned = true;
+      user.banReason = banReason || 'Причина не указана';
     } else {
       return res.status(400).json({ error: "Укажите корректное количество дней для бана" });
     }
